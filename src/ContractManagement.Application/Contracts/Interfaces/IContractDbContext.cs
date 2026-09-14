@@ -1,4 +1,3 @@
-using ContractManagement.Domain.Contracts.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace ContractManagement.Application.Contracts.Interfaces;
@@ -8,8 +7,8 @@ namespace ContractManagement.Application.Contracts.Interfaces;
 /// </summary>
 public interface IContractDbContext
 {
-    DbSet<Contract> Contracts { get; }
-    DbSet<ContractType> ContractTypes { get; }
-    DbSet<ContractTemplateVersion> ContractTemplateVersions { get; }
+    DbSet<ContractManagement.Domain.Contracts.Entities.Contract> Contracts { get; }
+    DbSet<ContractManagement.Domain.Contracts.Entities.ContractType> ContractTypes { get; }
+    DbSet<ContractManagement.Domain.Contracts.Entities.ContractTemplateVersion> ContractTemplateVersions { get; }
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

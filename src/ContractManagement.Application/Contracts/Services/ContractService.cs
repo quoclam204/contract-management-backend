@@ -24,7 +24,7 @@ public class ContractService : IContractService
 
     public async Task<ContractDto> CreateContractAsync(CreateContractRequest request)
     {
-        var contract = new Contract
+        var contract = new ContractManagement.Domain.Contracts.Entities.Contract
         {
             ContractNumber = request.ContractNumber,
             ContractTypeId = request.ContractTypeId,

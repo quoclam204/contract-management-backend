@@ -5,9 +5,9 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace ContractManagement.Infrastructure.Persistence.Configurations.Contracts;
 
-public class ContractConfiguration : IEntityTypeConfiguration<Contract>
+public class ContractConfiguration : IEntityTypeConfiguration<ContractManagement.Domain.Contracts.Entities.Contract>
 {
-    public void Configure(EntityTypeBuilder<Contract> builder)
+    public void Configure(EntityTypeBuilder<ContractManagement.Domain.Contracts.Entities.Contract> builder)
     {
         builder.ToTable("CONTRACTS");
 

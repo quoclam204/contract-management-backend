@@ -40,6 +40,7 @@ public class ContractManagementDbContext : DbContext,
     DbSet<LegacyContract.ContractType> IContractManagementDbContext.ContractTypes => Set<LegacyContract.ContractType>();
     DbSet<LegacyContract.ContractTemplateVersion> IContractManagementDbContext.ContractTemplateVersions => Set<LegacyContract.ContractTemplateVersion>();
     DbSet<LegacyContract.Contract> IContractManagementDbContext.Contracts => Set<LegacyContract.Contract>();
+    DbSet<LegacyContract.Contract> IAttachmentDbContext.Contracts => Set<LegacyContract.Contract>();
 
     public DbSet<Department> Departments => Set<Department>();
     public DbSet<User> Users => Set<User>();

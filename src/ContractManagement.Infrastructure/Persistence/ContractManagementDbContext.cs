@@ -7,7 +7,6 @@ using ContractManagement.Application.Notification.Interfaces;
 using ContractManagement.Application.Workflow.Interfaces;
 using ContractManagement.Domain;
 using ContractManagement.Domain.AI.Entities;
-using ContractManagement.Domain.Contract.Entities;
 using ContractManagement.Domain.Contracts.Entities;
 using ContractManagement.Domain.Identity.Entities;
 using ContractManagement.Domain.Workflow.Entities;
@@ -24,7 +23,7 @@ public class ContractManagementDbContext : DbContext,
     IIdentityDbContext,
     IPartnerDbContext,
     INotificationDbContext,
-    IAiDbContext
+    IAiDbContext,
     IAttachmentDbContext
 {
     public ContractManagementDbContext(DbContextOptions<ContractManagementDbContext> options)

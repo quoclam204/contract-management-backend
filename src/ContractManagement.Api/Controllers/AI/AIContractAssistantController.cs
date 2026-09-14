@@ -304,6 +304,7 @@ public class AIContractAssistantController : ControllerBase
         public DbSet<ContractManagement.Domain.Workflow.Entities.WorkflowDefinition> WorkflowDefinitions => throw new NotImplementedException();
         public DbSet<ContractManagement.Domain.Workflow.Entities.WorkflowStep> WorkflowSteps => throw new NotImplementedException();
         public DbSet<ContractManagement.Domain.Workflow.Entities.ApprovalStep> ApprovalSteps => throw new NotImplementedException();
+        public DbSet<ContractManagement.Domain.Workflow.Entities.Signature> Signatures => throw new NotImplementedException();
         public Task<Guid> GetDefaultApproverIdAsync(CancellationToken cancellationToken = default) => Task.FromResult(Guid.Empty);
         public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) => Task.FromResult(0);
     }

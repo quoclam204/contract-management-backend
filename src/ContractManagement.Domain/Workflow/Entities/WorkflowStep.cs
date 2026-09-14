@@ -24,6 +24,12 @@ public class WorkflowStep
 
     public bool IsRequired { get; set; } = true;
 
+    /// <summary>
+    /// Minimum contract amount required for this step to be applicable.
+    /// </summary>
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal MinimumAmount { get; set; } = 0;
+
     // Navigation property
     [ForeignKey(nameof(WorkflowDefinitionId))]
     [System.Text.Json.Serialization.JsonIgnore]

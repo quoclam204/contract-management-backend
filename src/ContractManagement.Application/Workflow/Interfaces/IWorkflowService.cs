@@ -1,4 +1,6 @@
 using ContractManagement.Application.Workflow.DTOs;
+using ContractManagement.Domain.Workflow.Entities;
+using Microsoft.EntityFrameworkCore;
 
 namespace ContractManagement.Application.Workflow.Interfaces;
 
@@ -52,4 +54,9 @@ public interface IWorkflowService
     /// Tiện ích kiểm thử tính hợp lệ và thẩm định biểu thức điều kiện với giá trị hợp đồng
     /// </summary>
     EvaluateConditionResponse EvaluateCondition(string expression, decimal contractValue);
+
+    /// <summary>
+    /// Thêm một bước vào một cấu hình Workflow đã tồn tại
+    /// </summary>
+    Task<WorkflowStepDto> AddStepAsync(Guid workflowDefinitionId, CreateWorkflowStepRequest request);
 }

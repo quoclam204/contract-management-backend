@@ -67,6 +67,11 @@ public class WorkflowStepConfiguration : IEntityTypeConfiguration<WorkflowStep>
         builder.Property(x => x.IsRequired)
             .HasDefaultValue(true);
 
+        builder.Property(x => x.MinimumAmount)
+            .HasPrecision(18, 2)
+            .IsRequired()
+            .HasDefaultValue(0m);
+
         // Ràng buộc Unique (WorkflowDefinitionId, StepOrder)
         builder.HasIndex(x => new { x.WorkflowDefinitionId, x.StepOrder })
             .IsUnique();

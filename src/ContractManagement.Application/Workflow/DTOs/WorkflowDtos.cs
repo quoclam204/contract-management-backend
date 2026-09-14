@@ -10,6 +10,7 @@ public class WorkflowStepDto
     public ApproverRole ApproverRole { get; set; }
     public string ApproverRoleName => ApproverRole.ToString();
     public bool IsRequired { get; set; }
+    public decimal MinimumAmount { get; set; }
 }
 
 public class WorkflowDefinitionDto
@@ -28,6 +29,7 @@ public class CreateWorkflowStepRequest
     public int StepOrder { get; set; }
     public ApproverRole ApproverRole { get; set; }
     public bool IsRequired { get; set; } = true;
+    public decimal MinimumAmount { get; set; } = 0;
 }
 
 public class CreateWorkflowDefinitionRequest

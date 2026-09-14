@@ -87,7 +87,8 @@ public class WorkflowService : IWorkflowService
                 WorkflowDefinitionId = definition.Id,
                 StepOrder = s.StepOrder,
                 ApproverRole = s.ApproverRole,
-                IsRequired = s.IsRequired
+                IsRequired = s.IsRequired,
+                MinimumAmount = s.MinimumAmount
             });
         }
 
@@ -117,7 +118,8 @@ public class WorkflowService : IWorkflowService
             {
                 StepOrder = s.StepOrder,
                 ApproverRole = s.ApproverRole,
-                IsRequired = s.IsRequired
+                IsRequired = s.IsRequired,
+                MinimumAmount = s.MinimumAmount
             }).ToList();
 
         ValidateSteps(stepsToApply);
@@ -156,7 +158,8 @@ public class WorkflowService : IWorkflowService
                 WorkflowDefinitionId = newVersion.Id,
                 StepOrder = s.StepOrder,
                 ApproverRole = s.ApproverRole,
-                IsRequired = s.IsRequired
+                IsRequired = s.IsRequired,
+                MinimumAmount = s.MinimumAmount
             });
         }
 
@@ -315,6 +318,45 @@ public class WorkflowService : IWorkflowService
         };
     }
 
+    // NEW: Add a step to an existing workflow definition
+    public async Task<WorkflowStepDto> AddStepAsync(Guid workflowDefinitionId, CreateWorkflowStepRequest request)
+    {
+        // Validate the workflow definition exists
+        var definition = await _context.WorkflowDefinitions
+            .Include(w => w.WorkflowSteps)
+            .FirstOrDefaultAsync(w => w.Id == workflowDefinitionId);
+
+        if (definition == null)
+            throw new KeyNotFoundException($"Không tìm thấy WorkflowDefinition có Id: {workflowDefinitionId}");
+
+        // Validate step request (reuse validation logic)
+        if (request == null)
+            throw new ArgumentNullException(nameof(request));
+
+        if (request.StepOrder <= 0)
+            throw new ArgumentException("Thứ tự bước duyệt (StepOrder) phải lớn hơn 0.", nameof(request.StepOrder));
+
+        // Check for duplicate StepOrder within the same workflow
+        if (definition.WorkflowSteps.Any(s => s.StepOrder == request.StepOrder))
+            throw new InvalidOperationException($"Thứ tự bước {request.StepOrder} đã tồn tại trong luồng duyệt này.");
+
+        // Create and add the step
+        var step = new WorkflowStep
+        {
+            Id = Guid.NewGuid(),
+            WorkflowDefinitionId = definition.Id,
+            StepOrder = request.StepOrder,
+            ApproverRole = request.ApproverRole,
+            IsRequired = request.IsRequired,
+            MinimumAmount = request.MinimumAmount
+        };
+
+        definition.WorkflowSteps.Add(step);
+        await _context.SaveChangesAsync();
+
+        return MapToStepDto(step);
+    }
+
     private static void ValidateSteps(List<CreateWorkflowStepRequest>? steps)
     {
         if (steps == null || !steps.Any())
@@ -344,8 +386,22 @@ public class WorkflowService : IWorkflowService
                 WorkflowDefinitionId = s.WorkflowDefinitionId,
                 StepOrder = s.StepOrder,
                 ApproverRole = s.ApproverRole,
-                IsRequired = s.IsRequired
+                IsRequired = s.IsRequired,
+                MinimumAmount = s.MinimumAmount
             }).OrderBy(s => s.StepOrder).ToList()
+        };
+    }
+
+    private static WorkflowStepDto MapToStepDto(WorkflowStep step)
+    {
+        return new WorkflowStepDto
+        {
+            Id = step.Id,
+            WorkflowDefinitionId = step.WorkflowDefinitionId,
+            StepOrder = step.StepOrder,
+            ApproverRole = step.ApproverRole,
+            IsRequired = step.IsRequired,
+            MinimumAmount = step.MinimumAmount
         };
     }
 }

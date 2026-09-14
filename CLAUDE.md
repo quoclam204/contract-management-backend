@@ -4,7 +4,8 @@ This document outlines the Claude Code setup for the ContractManagement project,
 
 ## Project Overview
 
-The ContractManagement project is a Modular Monolith implementation following Clean Architecture principles with .NET 9.0 target framework. It consists of 8 bounded contexts:
+The ContractManagement project is a Modular Monolith implementation following Clean Architecture principles with .NET 10.0 target framework. It consists of 8 bounded contexts:
+
 1. Identity - User authentication, roles, permissions
 2. Contract - Contract lifecycle, types, templates (primary focus)
 3. Workflow - Process automation, approvals (reference implementation)
@@ -17,11 +18,13 @@ The ContractManagement project is a Modular Monolith implementation following Cl
 ## 🚫 Critical Constraints
 
 **DO NOT MODIFY:**
+
 - Application source code (outside of Claude-approved feature work)
 - Database schema (database.sql is PERMANENT source of truth)
 - Git history
 
 **CLAUDE CODE USAGE IS LIMITED TO:**
+
 - Creating/updating Claude Code configuration files
 - Documentation, rules, skills, agents, commands, playbooks
 - Memory files and related configuration
@@ -70,7 +73,9 @@ The ContractManagement project is a Modular Monolith implementation following Cl
 ## 🔧 Key Commands
 
 ### `/contract`
+
 **MANDATORY first step for ANY Contract module work**
+
 - Inspects requirements from 02_Task_Nguoi2_Contract.md
 - Reviews database.sql for Contract tables
 - Examines Workflow module as reference implementation
@@ -79,7 +84,9 @@ The ContractManagement project is a Modular Monolith implementation following Cl
 - **WAIT FOR EXPLICIT APPROVAL before coding**
 
 ### `/implement-feature`
+
 Starts feature implementation process:
+
 1. Understand requirements
 2. Run Contract command (for Contract features)
 3. Break down work
@@ -90,14 +97,18 @@ Starts feature implementation process:
 8. Create pull request
 
 ### `/test`
+
 Runs appropriate build and tests:
+
 - `dotnet build` to ensure solution compiles
 - Executes relevant unit tests based on changes
 - Runs integration tests for database changes
 - Reports failures with clear pass/fail status
 
 ### `/review`
+
 Checks for compliance with:
+
 - Architectural principles (Clean Architecture, Modular Monolith)
 - Coding standards and conventions
 - Database schema fidelity (match to database.sql)
@@ -105,7 +116,9 @@ Checks for compliance with:
 - Test coverage and quality
 
 ### `/pull-request`
+
 Prepares clean PR for review:
+
 1. Ensure work is complete
 2. Local validation (build and test)
 3. Inspect changes (git diff)
@@ -118,6 +131,7 @@ Prepares clean PR for review:
 ## 🏗️ Architecture Compliance
 
 ### Clean Architecture Layers (DO NOT VIOLATE)
+
 ```
 API Layer → Application Layer → Domain Layer
                     ↑
@@ -130,7 +144,9 @@ API Layer → Application Layer → Domain Layer
 **API Layer**: Controllers, middleware (depends on Application & Infrastructure)
 
 ### Modular Monolith Boundaries
+
 The project maintains 8 strictly bounded contexts with:
+
 - Interface-based communication between modules
 - Event-driven integration (MediatR pattern)
 - Preference for module isolation
@@ -142,6 +158,7 @@ The project maintains 8 strictly bounded contexts with:
 The **Workflow module is the PERMANENT reference implementation** for Contract module development. Follow these patterns exactly:
 
 ### Domain Layer
+
 - Pure POCO entities (Contract, ContractType, ContractTemplateVersion)
 - Enums for status values (0-7)
 - Value objects (ContractNumber, ContractValue)
@@ -149,6 +166,7 @@ The **Workflow module is the PERMANENT reference implementation** for Contract m
 - Business logic in entities and domain services
 
 ### Application Layer
+
 - DTOs for data transfer
 - Interfaces for services and repositories
 - MediatR handlers for use cases
@@ -157,12 +175,14 @@ The **Workflow module is the PERMANENT reference implementation** for Contract m
 - Application events for integration
 
 ### Infrastructure Layer
+
 - EF Core entity configurations
 - DbContext with proper DbSets
 - Repository implementations
 - External service wrappers
 
 ### API Layer
+
 - Thin controllers (minimal business logic)
 - RESTful endpoints
 - Proper HTTP status codes
@@ -191,6 +211,7 @@ The **Workflow module is the PERMANENT reference implementation** for Contract m
 9. **NO DESTRUCTIVE OPERATIONS** - Never drop tables or lose data automatically
 
 ### Permanent Contract Tables
+
 - **CONTRACT_TYPES** - Id, Name, CreatedAt
 - **CONTRACT_TEMPLATE_VERSIONS** - Id, ContractTypeId, Version, TemplateFileUrl, ContentJson, WorkflowDefinitionId, IsActive, CreatedBy, CreatedAt
 - **CONTRACTS** - Id, ContractNumber, ContractTypeId, TemplateVersionUsedId, PartnerId, OwnerId, Title, Value, SignedDate, EffectiveDate, ExpiryDate, Status, FileUrl, ParentContractId, CreatedAt, UpdatedAt, RowVersion
@@ -198,6 +219,7 @@ The **Workflow module is the PERMANENT reference implementation** for Contract m
 ## 🧪 Testing Strategy
 
 ### Unit Tests
+
 - Domain entities (validation, business logic)
 - Domain services (business rules)
 - Application handlers (use case logic)
@@ -207,12 +229,14 @@ The **Workflow module is the PERMANENT reference implementation** for Contract m
 - Test happy path, edge cases, and error conditions
 
 ### Integration Tests
+
 - EF Core configurations (database mapping)
 - Repository methods (if implemented)
 - Controller endpoints (API behavior)
 - Mock external dependencies appropriately
 
 ### Test Organization
+
 - `tests/ContractManagement.UnitTests/`
 - `tests/ContractManagement.IntegrationTests/`
 - Module-specific subfolders when they exist (Contracts/, Workflow/)
@@ -224,31 +248,38 @@ The **Workflow module is the PERMANENT reference implementation** for Contract m
 This project strictly adheres to the **Conventional Commits** specification for all commit messages across both the **.NET API backend** and **React frontend**.
 
 ### 1. Commit Message Format
+
 The standard commit message format is:
+
 ```text
 <type>: <description>
 ```
+
 Or optionally with an explicit scope:
+
 ```text
 <type>(<scope>): <description>
 ```
 
 #### Allowed Scopes (Optional):
+
 - **Backend (.NET)**: `contract`, `workflow`, `identity`, `partner`, `payment`, `storage`, `notification`, `ai`, `api`, `infrastructure`, `domain`, `db`
 - **Frontend (React)**: `auth`, `contract`, `workflow`, `dashboard`, `components`, `hooks`, `ui`
 
 ### 2. Allowed Commit Types
-| Type | Purpose | When to Use |
-| :--- | :--- | :--- |
-| `feat` | Add a new feature | Introducing a new endpoint, entity, use case, or UI component. |
-| `fix` | Fix a bug | Patching a bug, error, broken validation, or logic defect. |
-| `refactor` | Restructure or improve code | Code refactoring that neither adds a feature nor fixes a bug. |
-| `docs` | Documentation changes | Updating SRS, markdown docs, API specs, diagrams, or comments. |
-| `test` | Add or modify tests | Adding or updating unit tests, integration tests, or test fixtures. |
-| `chore` | Configuration & maintenance | Updating packages, build scripts, Docker setup, or repo maintenance. |
-| `style` | Code formatting & style | Formatting, linting, whitespace, or naming without logic changes. |
+
+| Type       | Purpose                     | When to Use                                                          |
+| :--------- | :-------------------------- | :------------------------------------------------------------------- |
+| `feat`     | Add a new feature           | Introducing a new endpoint, entity, use case, or UI component.       |
+| `fix`      | Fix a bug                   | Patching a bug, error, broken validation, or logic defect.           |
+| `refactor` | Restructure or improve code | Code refactoring that neither adds a feature nor fixes a bug.        |
+| `docs`     | Documentation changes       | Updating SRS, markdown docs, API specs, diagrams, or comments.       |
+| `test`     | Add or modify tests         | Adding or updating unit tests, integration tests, or test fixtures.  |
+| `chore`    | Configuration & maintenance | Updating packages, build scripts, Docker setup, or repo maintenance. |
+| `style`    | Code formatting & style     | Formatting, linting, whitespace, or naming without logic changes.    |
 
 ### 3. Commit Message Rules & Quality Standards
+
 - **Imperative Mood**: Write in the imperative mood (e.g., `add`, `implement`, `fix`, `refactor` — NOT `added`, `fixing`, `fixes`).
 - **Language**: All commit messages must be written in **English**.
 - **Short & Concise**: Keep the subject line short, clear, and meaningful (aim for ≤ 72 characters).
@@ -256,7 +287,9 @@ Or optionally with an explicit scope:
 - **Lowercase**: Use lowercase for type and starting character of description (e.g., `feat: implement ...`).
 
 ### 4. 🚫 Strictly Forbidden Vague Messages
+
 Do NOT write vague, lazy, or ambiguous commit messages, such as:
+
 - ❌ `update code`
 - ❌ `fix`
 - ❌ `changes`
@@ -268,6 +301,7 @@ Do NOT write vague, lazy, or ambiguous commit messages, such as:
 - ❌ `test`
 
 ### 5. 🤖 Rules for AI Assistants
+
 - Whenever an AI assistant creates, suggests, or executes a Git commit, it **MUST** read and strictly follow the Git Commit Convention defined in this `CLAUDE.md`.
 - AI must inspect the staged changes (`git diff --staged`) to formulate a precise `<type>: <description>` or `<type>(<scope>): <description>`.
 - AI must NEVER use or suggest any of the forbidden vague commit messages listed above.
@@ -275,6 +309,7 @@ Do NOT write vague, lazy, or ambiguous commit messages, such as:
 ### 6. Practical Project Examples
 
 #### Backend (.NET API):
+
 - `feat(contract): implement contract draft creation use case`
 - `feat(workflow): add multi-step approval routing engine`
 - `feat(storage): implement MinIO storage provider for attachments`
@@ -288,6 +323,7 @@ Do NOT write vague, lazy, or ambiguous commit messages, such as:
 - `style: format C# entity classes according to naming conventions`
 
 #### Frontend (React):
+
 - `feat(contract): add contract creation form with template selector`
 - `feat(dashboard): integrate Recharts for contract status analytics`
 - `fix(auth): handle refresh token race condition on 401 response`
@@ -296,6 +332,7 @@ Do NOT write vague, lazy, or ambiguous commit messages, such as:
 - `chore: update TanStack Query to version 5.x`
 
 ### Code Style
+
 - Follow existing code style and conventions
 - Use meaningful names for variables, methods, classes
 - Keep methods small and focused (single responsibility)
@@ -303,13 +340,13 @@ Do NOT write vague, lazy, or ambiguous commit messages, such as:
 - Add XML documentation for public APIs
 - Handle errors appropriately (don't swallow exceptions)
 - Avoid hard-coded values (use configuration/constants)
-- Follow .NET 9 and C# 12 best practices
+- Follow .NET 10 and C# 12 best practices
 
 ## 🔄 AI-Driven Development Process
 
 This is the PERMANENT process that will NEVER change:
 
-1. **Specification First**: Start with clear requirements from docs/tasks/*.md
+1. **Specification First**: Start with clear requirements from docs/tasks/\*.md
 2. **Task Breakdown**: Use `/implement-feature` to break down into specific tasks
 3. **Implementation**: Code following established patterns (Workflow module as reference)
 4. **Testing**: Write unit tests, run with `/test` command
@@ -318,6 +355,7 @@ This is the PERMANENT process that will NEVER change:
 7. **Repeat**: Next feature
 
 ### Contract Module Specific Process
+
 1. **ALWAYS start with `/contract` command** (mandatory)
 2. Wait for explicit approval before any coding
 3. Follow Workflow module patterns exactly

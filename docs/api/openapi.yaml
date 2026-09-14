@@ -24,7 +24,7 @@ paths:
       tags:
         - Health
       responses:
-        '200':
+        "200":
           description: Service is healthy
           content:
             application/json:
@@ -42,7 +42,7 @@ paths:
                   version:
                     type: string
                     example: 1.0.0
-        '503':
+        "503":
           description: Service is unhealthy
           content:
             application/json:

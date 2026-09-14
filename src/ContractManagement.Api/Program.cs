@@ -4,6 +4,8 @@ using ContractManagement.Application;
 using ContractManagement.Application.Common.Interfaces;
 using ContractManagement.Application.Contract.Interfaces;
 using ContractManagement.Application.Contract.Services;
+using ContractManagement.Application.Dashboard.Interfaces;
+using ContractManagement.Application.Dashboard.Services;
 using ContractManagement.Application.Identity.Interfaces;
 using ContractManagement.Application.Identity.Services;
 using ContractManagement.Application.Notification.Interfaces;
@@ -70,6 +72,9 @@ builder.Services.AddScoped<IUserService, UserService>();
 // Contract Module Services
 builder.Services.AddScoped<IContractTypeService, ContractTypeService>();
 builder.Services.AddScoped<IContractTemplateVersionService, ContractTemplateVersionService>();
+
+// Dashboard Module Services
+builder.Services.AddScoped<IDashboardService, DashboardService>();
 
 // Workflow Module Services (Reference Implementation)
 builder.Services.AddScoped<IWorkflowConditionEvaluator, WorkflowConditionEvaluator>();

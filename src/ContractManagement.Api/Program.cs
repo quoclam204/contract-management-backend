@@ -65,6 +65,7 @@ builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 // Identity & Department Services
 builder.Services.AddScoped<IDepartmentService, DepartmentService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IUserService, UserService>();
 
 // Contract Module Services
 builder.Services.AddScoped<IContractTypeService, ContractTypeService>();

@@ -13,11 +13,13 @@ using ContractManagement.Application.Notification.Services;
 using ContractManagement.Application.Workflow.Interfaces;
 using ContractManagement.Application.Workflow.Services;
 using ContractManagement.Domain.Identity.Enums;
-using ContractManagement.Infrastructure.Messaging;
 using ContractManagement.Infrastructure.AI;
+using ContractManagement.Infrastructure.Messaging;
 using ContractManagement.Infrastructure.Persistence;
 using ContractManagement.Infrastructure.Security;
 using ContractManagement.Infrastructure.Storage;
+using Hangfire;
+using Hangfire.SqlServer;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -77,6 +79,22 @@ builder.Services.AddScoped<IContractTemplateVersionService, ContractTemplateVers
 
 // AI Module Services
 builder.Services.AddScoped<IAIContractAssistantService, MockAIContractAssistantService>();
+builder.Services.AddScoped<IAIAnalysisJobService, AIAnalysisJobService>();
+
+// Hangfire — AI analysis background jobs (SqlServer storage reusing DefaultConnection)
+// Application layer remains free of Hangfire types; Hangfire is API/Infrastructure concern only.
+if (!string.IsNullOrEmpty(connectionString))
+{
+    builder.Services.AddHangfire(config => config
+        .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+        .UseSimpleAssemblyNameTypeSerializer()
+        .UseRecommendedSerializerSettings()
+        .UseSqlServerStorage(connectionString, new SqlServerStorageOptions
+        {
+            PrepareSchemaIfNecessary = true
+        }));
+    builder.Services.AddHangfireServer();
+}
 
 // Workflow Module Services (Reference Implementation)
 builder.Services.AddScoped<IWorkflowConditionEvaluator, WorkflowConditionEvaluator>();

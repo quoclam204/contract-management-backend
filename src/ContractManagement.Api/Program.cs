@@ -31,6 +31,18 @@ builder.Services.AddOpenApi();
 builder.Services.AddHealthChecks();
 builder.Services.AddHttpContextAccessor();
 
+// CORS for Frontend
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.WithOrigins("http://localhost:5173", "http://127.0.0.1:5173")
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
+});
+
 // Database Context
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<ContractManagementDbContext>(options =>
@@ -43,16 +55,18 @@ builder.Services.AddDbContext<ContractManagementDbContext>(options =>
 
 // DbContext Interfaces
 builder.Services.AddScoped<IWorkflowDbContext>(sp => sp.GetRequiredService<ContractManagementDbContext>());
-// Notification Module Services
+builder.Services.AddScoped<IContractManagementDbContext>(sp => sp.GetRequiredService<ContractManagementDbContext>());
+builder.Services.AddScoped<ContractManagement.Application.Contracts.Interfaces.IContractDbContext>(sp => sp.GetRequiredService<ContractManagementDbContext>());
+builder.Services.AddScoped<IIdentityDbContext>(sp => sp.GetRequiredService<ContractManagementDbContext>());
+builder.Services.AddScoped<IPartnerDbContext>(sp => sp.GetRequiredService<ContractManagementDbContext>());
 builder.Services.AddScoped<INotificationDbContext>(sp => sp.GetRequiredService<ContractManagementDbContext>());
+builder.Services.AddScoped<IAttachmentDbContext>(sp => sp.GetRequiredService<ContractManagementDbContext>());
+
+// Notification Module Services
 builder.Services.AddScoped<INotificationService, NotificationService>();
 
 // RabbitMQ Messaging
 builder.Services.AddRabbitMqMessaging(builder.Configuration);
-builder.Services.AddScoped<IContractManagementDbContext>(sp => sp.GetRequiredService<ContractManagementDbContext>());
-builder.Services.AddScoped<IIdentityDbContext>(sp => sp.GetRequiredService<ContractManagementDbContext>());
-builder.Services.AddScoped<IPartnerDbContext>(sp => sp.GetRequiredService<ContractManagementDbContext>());
-builder.Services.AddScoped<IAttachmentDbContext>(sp => sp.GetRequiredService<ContractManagementDbContext>());
 
 // Infrastructure Services (Storage, etc.)
 builder.Services.AddInfrastructureServices();
@@ -78,6 +92,11 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IContractTypeService, ContractTypeService>();
 builder.Services.AddScoped<IContractTemplateVersionService, ContractTemplateVersionService>();
 
+// Legacy Contract Module Services
+builder.Services.AddScoped<ContractManagement.Application.Contracts.Interfaces.IContractService, ContractManagement.Application.Contracts.Services.ContractService>();
+builder.Services.AddScoped<ContractManagement.Application.Contracts.Interfaces.IContractTypeService, ContractManagement.Application.Contracts.Services.ContractTypeService>();
+builder.Services.AddScoped<ContractManagement.Application.Contracts.Interfaces.IContractTemplateVersionService, ContractManagement.Application.Contracts.Services.ContractTemplateVersionService>();
+
 // AI Module Services
 builder.Services.AddScoped<IAIContractAssistantService, MockAIContractAssistantService>();
 
@@ -85,6 +104,9 @@ builder.Services.AddScoped<IAIContractAssistantService, MockAIContractAssistantS
 builder.Services.AddScoped<IWorkflowConditionEvaluator, WorkflowConditionEvaluator>();
 builder.Services.AddScoped<IWorkflowService, WorkflowService>();
 builder.Services.AddScoped<IApprovalService, ApprovalService>();
+builder.Services.AddScoped<ISignatureProvider, ContractManagement.Application.Workflow.Services.SignatureProviders.MockSignatureProvider>();
+builder.Services.AddScoped<ISignatureProvider, ContractManagement.Application.Workflow.Services.SignatureProviders.OtpSignatureProvider>();
+builder.Services.AddScoped<ISignatureService, SignatureService>();
 
 // JWT Authentication Configuration
 var jwtSecret = builder.Configuration["Jwt:SecretKey"] ?? "ContractManagementSuperSecretKey2026!@#$%^&*()_+";
@@ -135,6 +157,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UseCors();
 
 app.UseAuthentication();
 app.UseAuthorization();

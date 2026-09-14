@@ -16,10 +16,12 @@ namespace ContractManagement.Api.Controllers.Identity;
 public class UsersController : ControllerBase
 {
     private readonly IUserService _userService;
+    private readonly IAuthService _authService;
 
-    public UsersController(IUserService userService)
+    public UsersController(IUserService userService, IAuthService authService)
     {
         _userService = userService;
+        _authService = authService;
     }
 
     /// <summary>
@@ -63,6 +65,16 @@ public class UsersController : ControllerBase
         {
             var user = await _authService.CreateUserAsync(request, cancellationToken);
             return CreatedAtAction(nameof(GetById), new { id = user.Id }, user);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
     /// Cập nhật thông tin người dùng (Yêu cầu quyền Admin)
     /// </summary>
     [HttpPut("{id:guid}")]

@@ -1,4 +1,5 @@
 using ContractManagement.Application.Contract.DTOs;
+using ContractManagement.Application.Contract.Interfaces;
 using ContractManagement.Application.Contract.Services;
 using ContractManagement.Domain.Contract.Entities;
 using ContractManagement.Infrastructure.Persistence;
@@ -14,7 +15,8 @@ namespace ContractManagement.UnitTests.Contract.Types;
 
 public class ContractTypeServiceTests : IDisposable
 {
-    private readonly ContractManagementDbContext _context;
+    private readonly ContractManagementDbContext _dbContext;
+    private readonly IContractManagementDbContext _context;
     private readonly ContractTypeService _service;
 
     public ContractTypeServiceTests()
@@ -23,7 +25,8 @@ public class ContractTypeServiceTests : IDisposable
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
         
-        _context = new ContractManagementDbContext(options);
+        _dbContext = new ContractManagementDbContext(options);
+        _context = _dbContext;
         _service = new ContractTypeService(_context);
         
         // Seed test data
@@ -31,12 +34,12 @@ public class ContractTypeServiceTests : IDisposable
             new ContractType { Id = Guid.NewGuid(), Name = "Test Type 1", CreatedAt = DateTime.UtcNow },
             new ContractType { Id = Guid.NewGuid(), Name = "Test Type 2", CreatedAt = DateTime.UtcNow }
         );
-        _context.SaveChanges();
+        _dbContext.SaveChanges();
     }
 
     public void Dispose()
     {
-        _context.Dispose();
+        _dbContext.Dispose();
     }
 
     [Fact]

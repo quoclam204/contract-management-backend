@@ -9,7 +9,7 @@ public class ContractTemplateVersionConfiguration : IEntityTypeConfiguration<Con
 {
     public void Configure(EntityTypeBuilder<ContractTemplateVersion> builder)
     {
-        builder.ToTable("CONTRACT_TEMPLATE_VERSIONS");
+        builder.ToTable("LEGACY_CONTRACT_TEMPLATE_VERSIONS");
 
         builder.HasKey(x => x.Id);
 

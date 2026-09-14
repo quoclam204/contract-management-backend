@@ -8,7 +8,7 @@ public class ContractTypeConfiguration : IEntityTypeConfiguration<ContractType>
 {
     public void Configure(EntityTypeBuilder<ContractType> builder)
     {
-        builder.ToTable("CONTRACT_TYPES");
+        builder.ToTable("LEGACY_CONTRACT_TYPES");
 
         builder.HasKey(x => x.Id);
 

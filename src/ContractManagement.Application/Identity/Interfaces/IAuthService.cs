@@ -6,6 +6,7 @@ public interface IAuthService
 {
     Task<LoginResponseDto> LoginAsync(LoginRequestDto request, CancellationToken cancellationToken = default);
     Task<UserDto> RegisterAsync(RegisterUserDto request, CancellationToken cancellationToken = default);
+    Task<UserDto> CreateUserAsync(CreateUserDto request, CancellationToken cancellationToken = default);
     Task<IEnumerable<UserDto>> GetAllUsersAsync(CancellationToken cancellationToken = default);
     Task<UserDto?> GetUserByIdAsync(Guid id, CancellationToken cancellationToken = default);
 }

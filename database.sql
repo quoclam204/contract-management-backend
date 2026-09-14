@@ -109,6 +109,7 @@ CREATE TABLE dbo.WORKFLOW_STEPS
     StepOrder               INT              NOT NULL,
     ApproverRole            TINYINT          NOT NULL,
     IsRequired              BIT              NOT NULL CONSTRAINT DF_WFSTEP_IsRequired DEFAULT 1,
+    MinimumAmount DECIMAL(18,2) NOT NULL CONSTRAINT DF_WFSTEP_MinimumAmount DEFAULT 0,
 
     CONSTRAINT PK_WORKFLOW_STEPS PRIMARY KEY CLUSTERED (Id),
     CONSTRAINT FK_WORKFLOW_STEPS_WORKFLOW_DEFINITIONS FOREIGN KEY (WorkflowDefinitionId)

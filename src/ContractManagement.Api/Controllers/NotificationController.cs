@@ -79,6 +79,7 @@ public class NotificationController : ControllerBase
     /// <param name="request">Danh sách ID thông báo cần đánh dấu đã đọc</param>
     /// <returns>Số lượng thông báo đã được cập nhật</returns>
     [HttpPatch("mark-read")]
+    [HttpPost("mark-read")]
     [ProducesResponseType(typeof(int), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -100,6 +101,7 @@ public class NotificationController : ControllerBase
     /// </summary>
     /// <returns>Số lượng thông báo đã được cập nhật</returns>
     [HttpPatch("mark-all-read")]
+    [HttpPost("mark-all-read")]
     [ProducesResponseType(typeof(int), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> MarkAllAsRead()

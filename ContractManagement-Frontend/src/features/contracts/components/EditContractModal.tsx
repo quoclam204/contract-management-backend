@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import type { ContractDto, UpdateContractRequest } from '../types/contract.types';
 import { updateContract, getContractTypes } from '../services/contractApi';
+import { getPartners } from '../../partners/services/partnerApi';
 
 interface EditContractModalProps {
   contract: ContractDto;
@@ -44,6 +45,14 @@ export const EditContractModal: FC<EditContractModalProps> = ({
     queryFn: getContractTypes,
     staleTime: 60000,
   });
+
+  // Load partners for selection
+  const { data: partnersData } = useQuery({
+    queryKey: ['partners-dropdown'],
+    queryFn: () => getPartners({ pageSize: 100 }),
+    staleTime: 60000,
+  });
+  const partners = partnersData?.items || [];
 
   // Sync state whenever contract changes or modal reopens
   useEffect(() => {
@@ -232,18 +241,26 @@ export const EditContractModal: FC<EditContractModalProps> = ({
               </p>
             </div>
 
-            {/* Partner ID */}
+            {/* Partner */}
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Đối tác ID <span className="text-rose-500">*</span>
+                Đối tác <span className="text-rose-500">*</span>
               </label>
-              <input
-                type="text"
+              <select
                 value={partnerId}
                 onChange={(e) => setPartnerId(e.target.value)}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-xs"
+                className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
                 required
-              />
+              >
+                {partners.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} {p.taxCode ? `(${p.taxCode})` : ''}
+                  </option>
+                ))}
+                {!partners.some((p) => p.id === partnerId) && partnerId && (
+                  <option value={partnerId}>Đối tác hiện tại ({partnerId})</option>
+                )}
+              </select>
             </div>
           </div>
 

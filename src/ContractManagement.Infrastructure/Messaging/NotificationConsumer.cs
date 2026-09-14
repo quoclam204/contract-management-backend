@@ -49,43 +49,50 @@ public sealed class NotificationConsumer : BackgroundService
     {
         _logger.LogInformation("NotificationConsumer starting — subscribing to queue '{Queue}'", QueueName);
 
-        _channel = _connectionFactory.CreateChannel();
-
-        // Declare exchange (idempotent).
-        _channel.ExchangeDeclare(
-            exchange: ExchangeName,
-            type: ExchangeType.Topic,
-            durable: true,
-            autoDelete: false);
-
-        // Declare queue (idempotent).
-        _channel.QueueDeclare(
-            queue: QueueName,
-            durable: true,
-            exclusive: false,
-            autoDelete: false,
-            arguments: null);
-
-        // Bind queue → exchange with routing key.
-        _channel.QueueBind(
-            queue: QueueName,
-            exchange: ExchangeName,
-            routingKey: RoutingKey);
-
-        // Use AsyncEventingBasicConsumer because factory.DispatchConsumersAsync = true
-        var consumer = new AsyncEventingBasicConsumer(_channel);
-
-        consumer.Received += async (model, ea) =>
+        try
         {
-            await HandleMessageAsync(ea);
-        };
+            _channel = _connectionFactory.CreateChannel();
 
-        _channel.BasicConsume(
-            queue: QueueName,
-            autoAck: false,
-            consumer: consumer);
+            // Declare exchange (idempotent).
+            _channel.ExchangeDeclare(
+                exchange: ExchangeName,
+                type: ExchangeType.Topic,
+                durable: true,
+                autoDelete: false);
 
-        _logger.LogInformation("NotificationConsumer is now consuming from queue '{Queue}'", QueueName);
+            // Declare queue (idempotent).
+            _channel.QueueDeclare(
+                queue: QueueName,
+                durable: true,
+                exclusive: false,
+                autoDelete: false,
+                arguments: null);
+
+            // Bind queue → exchange with routing key.
+            _channel.QueueBind(
+                queue: QueueName,
+                exchange: ExchangeName,
+                routingKey: RoutingKey);
+
+            // Use AsyncEventingBasicConsumer because factory.DispatchConsumersAsync = true
+            var consumer = new AsyncEventingBasicConsumer(_channel);
+
+            consumer.Received += async (model, ea) =>
+            {
+                await HandleMessageAsync(ea);
+            };
+
+            _channel.BasicConsume(
+                queue: QueueName,
+                autoAck: false,
+                consumer: consumer);
+
+            _logger.LogInformation("NotificationConsumer is now consuming from queue '{Queue}'", QueueName);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "RabbitMQ connection could not be established. NotificationConsumer is disabled.");
+        }
 
         return Task.CompletedTask;
     }

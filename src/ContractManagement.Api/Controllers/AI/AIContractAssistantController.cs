@@ -12,6 +12,7 @@ namespace ContractManagement.Api.Controllers.AI;
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
+[Route("api/ai/contracts")]
 [Tags("AI Contract Assistant")]
 [Authorize]
 public class AIContractAssistantController : ControllerBase

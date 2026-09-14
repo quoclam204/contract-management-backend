@@ -27,9 +27,11 @@ public class DashboardController : ControllerBase
     }
 
     /// <summary>
+    /// <summary>
     /// Gets overall summary KPI metrics (total contracts, total value, active, expiring, pending approval, etc.).
     /// </summary>
     [HttpGet("summary")]
+    [HttpGet("stats")]
     public async Task<ActionResult<DashboardSummaryDto>> GetSummary([FromQuery] Guid? userId = null, CancellationToken cancellationToken = default)
     {
         var filter = DetermineUserIdFilter(userId);
@@ -41,6 +43,7 @@ public class DashboardController : ControllerBase
     /// Gets contract count and total value aggregated by status (0 to 7).
     /// </summary>
     [HttpGet("by-status")]
+    [HttpGet("status-distribution")]
     public async Task<ActionResult<List<ContractStatusSummaryDto>>> GetByStatus([FromQuery] Guid? userId = null, CancellationToken cancellationToken = default)
     {
         var filter = DetermineUserIdFilter(userId);
@@ -52,6 +55,7 @@ public class DashboardController : ControllerBase
     /// Gets contract count and total value aggregated by department.
     /// </summary>
     [HttpGet("by-department")]
+    [HttpGet("value-by-type")]
     public async Task<ActionResult<List<DepartmentContractSummaryDto>>> GetByDepartment([FromQuery] Guid? userId = null, CancellationToken cancellationToken = default)
     {
         var filter = DetermineUserIdFilter(userId);
@@ -77,6 +81,7 @@ public class DashboardController : ControllerBase
     /// Gets contract count and total value aggregated by creation month and year.
     /// </summary>
     [HttpGet("by-time")]
+    [HttpGet("contract-trends")]
     public async Task<ActionResult<List<MonthlyContractSummaryDto>>> GetByTime([FromQuery] Guid? userId = null, CancellationToken cancellationToken = default)
     {
         var filter = DetermineUserIdFilter(userId);

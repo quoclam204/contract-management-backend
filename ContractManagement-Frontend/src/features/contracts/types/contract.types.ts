@@ -31,6 +31,21 @@ export interface ContractDto {
   updatedAt?: string | null;
 }
 
+export interface CreateContractRequest {
+  contractNumber: string;
+  contractTypeId: string;
+  templateVersionUsedId: string;
+  partnerId: string;
+  ownerId: string;
+  title: string;
+  value: number;
+  signedDate?: string | null;
+  effectiveDate: string;
+  expiryDate: string;
+  fileUrl?: string | null;
+  parentContractId?: string | null;
+}
+
 export interface UpdateContractRequest {
   contractNumber?: string;
   contractTypeId?: string;

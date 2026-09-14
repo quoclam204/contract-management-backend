@@ -1,7 +1,7 @@
 using ContractManagement.Application.Contract.DTOs;
 using ContractManagement.Application.Contract.Interfaces;
 using ContractManagement.Application.Contract.Services;
-using ContractManagement.Domain.Contract.Entities;
+using ContractManagement.Domain.Contracts.Entities;
 using ContractManagement.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using System;

@@ -1,6 +1,6 @@
 using ContractManagement.Application.Contract.DTOs;
 using ContractManagement.Application.Contract.Interfaces;
-using ContractManagement.Domain.Contract.Entities;
+using ContractManagement.Domain.Contracts.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace ContractManagement.Application.Contract.Services;

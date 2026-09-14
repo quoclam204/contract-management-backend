@@ -3,8 +3,8 @@ using ContractManagement.Application.Contract.Interfaces;
 using ContractManagement.Application.Dashboard.DTOs;
 using ContractManagement.Application.Dashboard.Interfaces;
 using ContractManagement.Application.Identity.Interfaces;
-using DomainContract = ContractManagement.Domain.Contract.Entities;
-using ContractManagement.Domain.Contract.Enums;
+using DomainContract = ContractManagement.Domain.Contracts.Entities;
+using ContractManagement.Domain.Contracts.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace ContractManagement.Application.Dashboard.Services;
@@ -39,13 +39,13 @@ public class DashboardService : IDashboardService
         var totalContracts = contractStats.Count;
         var totalValue = contractStats.Sum(c => c.Value);
 
-        var active = contractStats.Where(c => c.Status == (byte)ContractStatusEnum.Active).ToList();
-        var expiring = contractStats.Where(c => c.Status == (byte)ContractStatusEnum.Expiring).ToList();
-        var pending = contractStats.Where(c => c.Status == (byte)ContractStatusEnum.PendingApproval).ToList();
+        var active = contractStats.Where(c => c.Status == ContractStatus.Active).ToList();
+        var expiring = contractStats.Where(c => c.Status == ContractStatus.Expiring).ToList();
+        var pending = contractStats.Where(c => c.Status == ContractStatus.PendingApproval).ToList();
 
-        var draftCount = contractStats.Count(c => c.Status == (byte)ContractStatusEnum.Draft);
-        var signedCount = contractStats.Count(c => c.Status == (byte)ContractStatusEnum.Signed);
-        var terminatedCount = contractStats.Count(c => c.Status == (byte)ContractStatusEnum.Terminated);
+        var draftCount = contractStats.Count(c => c.Status == ContractStatus.Draft);
+        var signedCount = contractStats.Count(c => c.Status == ContractStatus.Signed);
+        var terminatedCount = contractStats.Count(c => c.Status == ContractStatus.Terminated);
 
         return new DashboardSummaryDto
         {
@@ -71,7 +71,7 @@ public class DashboardService : IDashboardService
             .GroupBy(c => c.Status)
             .Select(g => new
             {
-                Status = g.Key,
+                Status = (byte)g.Key,
                 Count = g.Count(),
                 TotalValue = g.Sum(c => c.Value)
             })
@@ -80,7 +80,7 @@ public class DashboardService : IDashboardService
         var resultDict = statusGroups.ToDictionary(g => g.Status);
 
         var result = new List<ContractStatusSummaryDto>();
-        foreach (ContractStatusEnum statusEnum in Enum.GetValues(typeof(ContractStatusEnum)))
+        foreach (ContractStatus statusEnum in Enum.GetValues(typeof(ContractStatus)))
         {
             byte statusByte = (byte)statusEnum;
             if (resultDict.TryGetValue(statusByte, out var group))

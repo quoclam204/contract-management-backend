@@ -9,6 +9,10 @@ import { EditContractModal } from '../components/EditContractModal';
 import { SignContractModal } from '../../workflows/components/SignContractModal';
 import { getSignaturesByContractId, getSignatureStatus } from '../../workflows/services/workflowApi';
 import type { SignatureDto } from '../../workflows/types/workflow.types';
+import { getPartnerById } from '../../partners/services/partnerApi';
+import { getAttachmentsByContract, uploadAttachment, getAttachmentDownloadUrl } from '../services/attachmentApi';
+import type { AttachmentDto } from '../types/attachment.types';
+import { AIAssistantModal } from '../../ai/components/AIAssistantModal';
 
 interface ContractDetailPageProps {
   contractId: string;
@@ -19,6 +23,8 @@ export const ContractDetailPage: FC<ContractDetailPageProps> = ({ contractId, on
   const queryClient = useQueryClient();
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isSignModalOpen, setIsSignModalOpen] = useState(false);
+  const [isAIModalOpen, setIsAIModalOpen] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   // Fetch contract detail
@@ -32,6 +38,41 @@ export const ContractDetailPage: FC<ContractDetailPageProps> = ({ contractId, on
     queryKey: ['contract', contractId],
     queryFn: () => getContractById(contractId),
   });
+
+  // Fetch partner info
+  const { data: partner } = useQuery({
+    queryKey: ['partner', contract?.partnerId],
+    queryFn: () => getPartnerById(contract!.partnerId),
+    enabled: !!contract?.partnerId,
+  });
+
+  // Fetch attachments
+  const { data: attachments = [], refetch: refetchAttachments, isLoading: isAttachmentsLoading } = useQuery<AttachmentDto[]>({
+    queryKey: ['attachments', contractId],
+    queryFn: () => getAttachmentsByContract(contractId),
+    enabled: !!contractId,
+  });
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploading(true);
+    try {
+      await uploadAttachment(contractId, file);
+      await refetchAttachments();
+      setNotification({ type: 'success', message: `Đã tải lên tệp "${file.name}" thành công!` });
+      setTimeout(() => setNotification(null), 5000);
+    } catch (err: unknown) {
+      setNotification({
+        type: 'error',
+        message: `Lỗi tải lên tệp: ${err instanceof Error ? err.message : 'Thất bại'}`,
+      });
+      setTimeout(() => setNotification(null), 7000);
+    } finally {
+      setIsUploading(false);
+      e.target.value = '';
+    }
+  };
 
   // Fetch approval steps / progress if any
   const { data: approvalProgress } = useQuery({
@@ -226,6 +267,16 @@ export const ContractDetailPage: FC<ContractDetailPageProps> = ({ contractId, on
             </div>
           )}
 
+          {/* AI Assistant Button */}
+          <button
+            type="button"
+            onClick={() => setIsAIModalOpen(true)}
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-xl shadow-xs transition-colors"
+          >
+            <span>✨</span>
+            <span>Trợ lý AI</span>
+          </button>
+
           {/* Sign Button: ONLY for Approved contracts */}
           {contract.status === ContractStatus.Approved && (
             <button
@@ -332,9 +383,22 @@ export const ContractDetailPage: FC<ContractDetailPageProps> = ({ contractId, on
           </h2>
 
           <dl className="divide-y divide-slate-100 text-xs">
-            <div className="py-2.5 flex justify-between">
-              <dt className="text-slate-500 font-medium">Đối tác liên kết (Partner ID)</dt>
-              <dd className="font-mono text-slate-800 font-semibold">{contract.partnerId}</dd>
+            <div className="py-2.5 flex justify-between items-center">
+              <dt className="text-slate-500 font-medium">Đối tác liên kết</dt>
+              <dd className="text-slate-800 font-semibold text-right">
+                {partner ? (
+                  <div>
+                    <div>{partner.name}</div>
+                    {partner.taxCode && (
+                      <span className="text-[11px] font-normal text-slate-500 font-mono">
+                        MST: {partner.taxCode}
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <span className="font-mono text-xs">{contract.partnerId}</span>
+                )}
+              </dd>
             </div>
             <div className="py-2.5 flex justify-between">
               <dt className="text-slate-500 font-medium">Người tạo / Quản lý (Owner ID)</dt>
@@ -359,14 +423,52 @@ export const ContractDetailPage: FC<ContractDetailPageProps> = ({ contractId, on
 
         {/* Right Column: Attachment / Document */}
         <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xs space-y-4">
-          <h2 className="text-base font-bold text-slate-900 border-b border-slate-100 pb-3 flex items-center gap-2">
-            <svg className="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-            </svg>
-            Tệp đính kèm & Tài liệu
-          </h2>
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <svg className="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+              </svg>
+              Tài liệu đính kèm ({attachments.length})
+            </h2>
+            <label className="cursor-pointer inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors">
+              <span>{isUploading ? 'Đang tải...' : '+ Tải tệp lên'}</span>
+              <input
+                type="file"
+                className="hidden"
+                disabled={isUploading}
+                onChange={handleFileUpload}
+              />
+            </label>
+          </div>
 
-          {contract.fileUrl ? (
+          {isAttachmentsLoading ? (
+            <div className="py-6 text-center text-xs text-slate-400">Đang tải danh sách tài liệu...</div>
+          ) : attachments.length > 0 ? (
+            <div className="divide-y divide-slate-100 max-h-64 overflow-y-auto">
+              {attachments.map((att) => (
+                <div key={att.id} className="py-2.5 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="w-7 h-7 rounded bg-indigo-50 text-indigo-600 flex items-center justify-center text-xs font-bold shrink-0">
+                      v{att.version}
+                    </span>
+                    <div className="min-w-0 truncate">
+                      <p className="text-xs font-semibold text-slate-800 truncate">{att.fileName}</p>
+                      <p className="text-[10px] text-slate-400">{formatDate(att.uploadedAt)}</p>
+                    </div>
+                  </div>
+                  <a
+                    href={getAttachmentDownloadUrl(att.id)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    download
+                    className="px-2.5 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-50 border border-indigo-200 rounded-md transition-colors shrink-0"
+                  >
+                    Tải về
+                  </a>
+                </div>
+              ))}
+            </div>
+          ) : contract.fileUrl ? (
             <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
               <div className="flex items-center gap-3 overflow-hidden">
                 <div className="w-10 h-10 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-600 flex items-center justify-center shrink-0">
@@ -386,26 +488,20 @@ export const ContractDetailPage: FC<ContractDetailPageProps> = ({ contractId, on
                 className="px-3 py-1.5 text-xs font-semibold text-indigo-600 bg-white hover:bg-indigo-50 border border-indigo-200 rounded-lg transition-colors shrink-0 flex items-center gap-1"
               >
                 <span>Xem tệp</span>
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                </svg>
               </a>
             </div>
           ) : (
             <div className="p-6 bg-slate-50 border border-dashed border-slate-200 rounded-xl text-center space-y-2">
-              <svg className="w-8 h-8 text-slate-300 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              <p className="text-xs text-slate-400">Chưa có tệp đính kèm cho hợp đồng này.</p>
-              {isDraft && (
-                <button
-                  type="button"
-                  onClick={() => setIsEditModalOpen(true)}
-                  className="text-xs text-indigo-600 font-semibold hover:underline"
-                >
-                  Bổ sung URL tệp ngay
-                </button>
-              )}
+              <p className="text-xs text-slate-400">Chưa có tệp đính kèm nào được tải lên cho hợp đồng này.</p>
+              <label className="cursor-pointer text-xs text-indigo-600 font-semibold hover:underline inline-block">
+                Bấm vào đây để tải lên tệp đầu tiên
+                <input
+                  type="file"
+                  className="hidden"
+                  disabled={isUploading}
+                  onChange={handleFileUpload}
+                />
+              </label>
             </div>
           )}
         </div>
@@ -650,6 +746,16 @@ export const ContractDetailPage: FC<ContractDetailPageProps> = ({ contractId, on
             });
             setTimeout(() => setNotification(null), 5000);
           }}
+        />
+      )}
+
+      {/* AI Assistant Modal */}
+      {contract && (
+        <AIAssistantModal
+          isOpen={isAIModalOpen}
+          contractId={contract.id}
+          contractTitle={contract.title}
+          onClose={() => setIsAIModalOpen(false)}
         />
       )}
     </div>

@@ -8,6 +8,7 @@ interface ContractTableProps {
   onSubmitContract: (contract: ContractDto) => void;
   onSelectContract?: (contract: ContractDto) => void;
   submittingId: string | null;
+  partnerMap?: Record<string, string>;
 }
 
 export const ContractTable: FC<ContractTableProps> = ({
@@ -15,6 +16,7 @@ export const ContractTable: FC<ContractTableProps> = ({
   onSubmitContract,
   onSelectContract,
   submittingId,
+  partnerMap,
 }) => {
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('vi-VN', {
@@ -86,8 +88,11 @@ export const ContractTable: FC<ContractTableProps> = ({
                     {contract.title}
                   </button>
                   {contract.partnerId && (
-                    <div className="text-xs text-slate-400 truncate mt-0.5" title={`Partner: ${contract.partnerId}`}>
-                      Đối tác ID: {contract.partnerId.substring(0, 8)}...
+                    <div className="text-xs text-slate-500 truncate mt-0.5 flex items-center gap-1" title={`Partner: ${contract.partnerId}`}>
+                      <span className="text-slate-400 font-normal">Đối tác:</span>
+                      <span className="font-medium text-slate-700">
+                        {partnerMap?.[contract.partnerId] || `ID: ${contract.partnerId.substring(0, 8)}...`}
+                      </span>
                     </div>
                   )}
                 </td>

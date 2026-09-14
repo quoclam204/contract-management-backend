@@ -2,9 +2,11 @@ import type { FC } from 'react';
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getContracts, submitContract } from '../services/contractApi';
+import { getPartners } from '../../partners/services/partnerApi';
 import type { ContractDto } from '../types/contract.types';
 import { ContractStatus, CONTRACT_STATUS_MAP } from '../types/contract.types';
 import { ContractTable } from '../components/ContractTable';
+import { CreateContractModal } from '../components/CreateContractModal';
 
 interface ContractListPageProps {
   onSelectContract?: (contractId: string) => void;
@@ -14,6 +16,7 @@ export const ContractListPage: FC<ContractListPageProps> = ({ onSelectContract }
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false);
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   // Fetch contracts using TanStack React Query
@@ -26,8 +29,23 @@ export const ContractListPage: FC<ContractListPageProps> = ({ onSelectContract }
     isFetching,
   } = useQuery<ContractDto[]>({
     queryKey: ['contracts'],
-    queryFn: getContracts,
+    queryFn: () => getContracts(),
   });
+
+  // Fetch partners to map partnerId to partner name in table
+  const { data: partnersData } = useQuery({
+    queryKey: ['partners-dropdown'],
+    queryFn: () => getPartners({ pageSize: 100 }),
+    staleTime: 60000,
+  });
+
+  const partnerMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    partnersData?.items.forEach((p) => {
+      map[p.id] = p.name;
+    });
+    return map;
+  }, [partnersData]);
 
   // Mutation for submitting contract
   const submitMutation = useMutation({
@@ -92,6 +110,14 @@ export const ContractListPage: FC<ContractListPageProps> = ({ onSelectContract }
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setIsCreateModalOpen(true)}
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-lg shadow-sm hover:bg-indigo-700 transition-colors"
+          >
+            <span>+</span>
+            <span>Tạo hợp đồng</span>
+          </button>
           <button
             type="button"
             onClick={() => refetch()}
@@ -289,8 +315,23 @@ export const ContractListPage: FC<ContractListPageProps> = ({ onSelectContract }
           onSubmitContract={handleSubmit}
           onSelectContract={(c) => onSelectContract?.(c.id)}
           submittingId={submitMutation.isPending ? submitMutation.variables ?? null : null}
+          partnerMap={partnerMap}
         />
       )}
+
+      {/* Create Contract Modal */}
+      <CreateContractModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['contracts'] });
+          setNotification({
+            type: 'success',
+            message: 'Đã tạo mới hợp đồng thành công!',
+          });
+          setTimeout(() => setNotification(null), 5000);
+        }}
+      />
     </div>
   );
 };

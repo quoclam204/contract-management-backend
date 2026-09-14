@@ -7,7 +7,7 @@ using ContractManagement.Application.Common.Interfaces;
 using ContractManagement.Application.Features.Attachments;
 using ContractManagement.Application.Features.Attachments.Validators;
 using ContractManagement.Domain;
-using ContractManagement.Domain.Contract.Entities;
+using ContractManagement.Domain.Contracts.Entities;
 using ContractManagement.Infrastructure.Persistence;
 using ContractManagement.Infrastructure.Services;
 using FluentAssertions;
@@ -29,9 +29,9 @@ public class AttachmentHandlerTests
         return new ContractManagementDbContext(options);
     }
 
-    private static ContractManagement.Domain.Contract.Entities.Contract SeedContract(ContractManagementDbContext context)
+    private static ContractManagement.Domain.Contracts.Entities.Contract SeedContract(ContractManagementDbContext context)
     {
-        var contract = new ContractManagement.Domain.Contract.Entities.Contract
+        var contract = new ContractManagement.Domain.Contracts.Entities.Contract
         {
             Id = Guid.NewGuid(),
             ContractNumber = "HD-" + Guid.NewGuid().ToString()[..8],

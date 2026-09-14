@@ -24,11 +24,41 @@ public class ContractService : IContractService
 
     public async Task<ContractDto> CreateContractAsync(CreateContractRequest request)
     {
+        var templateVersionId = request.TemplateVersionUsedId;
+        if (templateVersionId == Guid.Empty)
+        {
+            var activeTemplate = await _context.ContractTemplateVersions
+                .Where(v => v.ContractTypeId == request.ContractTypeId && v.IsActive)
+                .OrderByDescending(v => v.Version)
+                .Select(v => v.Id)
+                .FirstOrDefaultAsync();
+
+            if (activeTemplate == Guid.Empty)
+            {
+                var defaultTemplate = new ContractManagement.Domain.Contracts.Entities.ContractTemplateVersion
+                {
+                    Id = Guid.NewGuid(),
+                    ContractTypeId = request.ContractTypeId,
+                    Version = 1,
+                    IsActive = true,
+                    CreatedBy = request.OwnerId != Guid.Empty ? request.OwnerId : Guid.NewGuid(),
+                    CreatedAt = DateTime.UtcNow
+                };
+                _context.ContractTemplateVersions.Add(defaultTemplate);
+                await _context.SaveChangesAsync();
+                templateVersionId = defaultTemplate.Id;
+            }
+            else
+            {
+                templateVersionId = activeTemplate;
+            }
+        }
+
         var contract = new ContractManagement.Domain.Contracts.Entities.Contract
         {
             ContractNumber = request.ContractNumber,
             ContractTypeId = request.ContractTypeId,
-            TemplateVersionUsedId = request.TemplateVersionUsedId,
+            TemplateVersionUsedId = templateVersionId,
             PartnerId = request.PartnerId,
             OwnerId = request.OwnerId,
             Title = request.Title,

@@ -37,11 +37,6 @@ public class ContractManagementDbContext : DbContext,
     public DbSet<ContractTemplateVersion> ContractTemplateVersions => Set<ContractTemplateVersion>();
     public DbSet<Contract> Contracts => Set<Contract>();
 
-    DbSet<LegacyContract.ContractType> IContractManagementDbContext.ContractTypes => Set<LegacyContract.ContractType>();
-    DbSet<LegacyContract.ContractTemplateVersion> IContractManagementDbContext.ContractTemplateVersions => Set<LegacyContract.ContractTemplateVersion>();
-    DbSet<LegacyContract.Contract> IContractManagementDbContext.Contracts => Set<LegacyContract.Contract>();
-    DbSet<LegacyContract.Contract> IAttachmentDbContext.Contracts => Set<LegacyContract.Contract>();
-
     public DbSet<Department> Departments => Set<Department>();
     public DbSet<User> Users => Set<User>();
     public DbSet<Partner> Partners => Set<Partner>();
@@ -77,6 +72,11 @@ public class ContractManagementDbContext : DbContext,
     {
         // Apply configurations from assemblies
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(ContractManagementDbContext).Assembly);
+
+        // Ignore duplicate entity classes from legacy namespace
+        modelBuilder.Ignore<ContractManagement.Domain.Contract.Entities.Contract>();
+        modelBuilder.Ignore<ContractManagement.Domain.Contract.Entities.ContractType>();
+        modelBuilder.Ignore<ContractManagement.Domain.Contract.Entities.ContractTemplateVersion>();
 
         base.OnModelCreating(modelBuilder);
     }

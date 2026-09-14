@@ -3,8 +3,9 @@ using ContractManagement.Application.Dashboard.DTOs;
 using ContractManagement.Application.Dashboard.Services;
 using ContractManagement.Application.Common.Interfaces;
 using ContractManagement.Application.Identity.Interfaces;
-using DomainContract = ContractManagement.Domain.Contract.Entities;
+using DomainContract = ContractManagement.Domain.Contracts.Entities;
 using ContractManagement.Domain.Contract.Enums;
+using ContractManagement.Domain.Contracts.Enums;
 using ContractManagement.Domain.Identity.Entities;
 using ContractManagement.Domain.Identity.Enums;
 using ContractManagement.Domain;
@@ -31,6 +32,7 @@ public class DashboardServiceTests : IDisposable
 
     public void Dispose()
     {
+        _context.Database.EnsureDeleted();
         _context.Dispose();
     }
 
@@ -52,7 +54,7 @@ public class DashboardServiceTests : IDisposable
             PartnerId = partnerId,
             EffectiveDate = createdAt,
             ExpiryDate = createdAt.AddYears(1),
-            Status = (byte)status,
+            Status = (ContractStatus)(byte)status,
             Value = value,
             CreatedAt = createdAt,
             RowVersion = new byte[] { 1, 2, 3, 4 }

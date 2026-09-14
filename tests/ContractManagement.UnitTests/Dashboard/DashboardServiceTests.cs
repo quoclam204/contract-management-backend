@@ -291,6 +291,7 @@ public class TestDashboardDbContext : DbContext, IContractManagementDbContext, I
     public DbSet<WorkflowDefinition> WorkflowDefinitions { get; set; } = default!;
     public DbSet<WorkflowStep> WorkflowSteps { get; set; } = default!;
     public DbSet<ApprovalStep> ApprovalSteps { get; set; } = default!;
+    public DbSet<Signature> Signatures { get; set; } = default!;
 
     public Task<Guid> GetDefaultApproverIdAsync(CancellationToken cancellationToken = default)
     {

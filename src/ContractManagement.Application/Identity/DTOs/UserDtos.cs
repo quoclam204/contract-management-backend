@@ -17,6 +17,14 @@ public record RegisterUserDto(
     string FullName,
     string Email,
     string Password,
+    Guid? DepartmentId = null,
+    UserRole? Role = null
+);
+
+public record CreateUserDto(
+    string FullName,
+    string Email,
+    string Password,
     UserRole Role,
     Guid? DepartmentId = null
 );

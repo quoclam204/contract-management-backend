@@ -48,4 +48,28 @@ public class UsersController : ControllerBase
 
         return Ok(user);
     }
+
+    /// <summary>
+    /// Tạo người dùng mới với vai trò chỉ định (Chỉ Admin mới có quyền)
+    /// </summary>
+    [HttpPost]
+    [Authorize(Policy = "RequireAdmin")]
+    [ProducesResponseType(typeof(UserDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> Create([FromBody] CreateUserDto request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var user = await _authService.CreateUserAsync(request, cancellationToken);
+            return CreatedAtAction(nameof(GetById), new { id = user.Id }, user);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
 }

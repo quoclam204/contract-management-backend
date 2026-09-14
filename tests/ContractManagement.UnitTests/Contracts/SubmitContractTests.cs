@@ -6,6 +6,7 @@ using ContractManagement.Application.Workflow.Events;
 using ContractManagement.Application.Workflow.Handlers;
 using ContractManagement.Application.Workflow.Interfaces;
 using ContractManagement.Domain.Contracts.Entities;
+using ContractEntity = ContractManagement.Domain.Contracts.Entities.Contract;
 using ContractManagement.Domain.Contracts.Enums;
 using ContractManagement.Domain.Workflow.Entities;
 using ContractManagement.Infrastructure.Persistence;
@@ -98,6 +99,9 @@ public class SubmitContractTests
 
         public EvaluateConditionResponse EvaluateCondition(string expression, decimal contractValue)
             => throw new NotImplementedException();
+
+        public Task<WorkflowStepDto> AddStepAsync(Guid workflowDefinitionId, CreateWorkflowStepRequest request)
+            => throw new NotImplementedException();
     }
 
     private class FakeApprovalService : IApprovalService
@@ -147,7 +151,7 @@ public class SubmitContractTests
         };
         context.ContractTemplateVersions.Add(templateVersion);
 
-        var contract = new Contract
+        var contract = new ContractEntity
         {
             Id = Guid.NewGuid(),
             ContractNumber = "HD-TEST-001",
@@ -200,7 +204,7 @@ public class SubmitContractTests
         var mediator = new FakeMediator();
         var service = new ContractService(context, mediator);
 
-        var contract = new Contract
+        var contract = new ContractEntity
         {
             Id = Guid.NewGuid(),
             ContractNumber = "HD-TEST-002",
@@ -326,7 +330,7 @@ public class SubmitContractTests
             mediator,
             NullLogger<WorkflowApprovedEventHandler>.Instance);
 
-        var contract = new Contract
+        var contract = new ContractEntity
         {
             Id = Guid.NewGuid(),
             ContractNumber = "HD-APPROVE-001",
@@ -366,7 +370,7 @@ public class SubmitContractTests
             context,
             NullLogger<WorkflowRejectedEventHandler>.Instance);
 
-        var contract = new Contract
+        var contract = new ContractEntity
         {
             Id = Guid.NewGuid(),
             ContractNumber = "HD-REJECT-001",

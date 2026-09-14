@@ -22,6 +22,11 @@ public class DepartmentConfiguration : IEntityTypeConfiguration<Department>
         builder.Property(x => x.ManagerId)
             .IsRequired(false);
 
+        builder.HasOne<User>()
+            .WithMany()
+            .HasForeignKey(x => x.ManagerId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         builder.Property(x => x.CreatedAt)
             .HasDefaultValueSql("SYSUTCDATETIME()");
     }

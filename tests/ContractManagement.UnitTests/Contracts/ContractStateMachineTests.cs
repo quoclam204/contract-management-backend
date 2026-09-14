@@ -1,4 +1,5 @@
 using ContractManagement.Domain.Contracts.Entities;
+using ContractEntity = ContractManagement.Domain.Contracts.Entities.Contract;
 using ContractManagement.Domain.Contracts.Enums;
 using Xunit;
 
@@ -6,9 +7,9 @@ namespace ContractManagement.UnitTests.Contracts;
 
 public class ContractStateMachineTests
 {
-    private static Contract CreateValidDraftContract()
+    private static ContractEntity CreateValidDraftContract()
     {
-        return new Contract
+        return new ContractEntity
         {
             Id = Guid.NewGuid(),
             ContractNumber = "HD-2026-001",

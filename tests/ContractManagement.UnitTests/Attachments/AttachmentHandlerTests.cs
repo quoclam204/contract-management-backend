@@ -44,7 +44,7 @@ public class AttachmentHandlerTests
             OwnerId = Guid.NewGuid(),
             RowVersion = new byte[] { 0, 0, 0, 0, 0, 0, 0, 1 }
         };
-        context.Contracts.Add(contract);
+        ((IAttachmentDbContext)context).Contracts.Add(contract);
         context.SaveChanges();
         return contract;
     }

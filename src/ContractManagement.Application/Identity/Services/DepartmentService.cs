@@ -40,7 +40,21 @@ public class DepartmentService : IDepartmentService
         if (string.IsNullOrWhiteSpace(dto.Name))
             throw new ArgumentException("Department name cannot be empty", nameof(dto.Name));
 
-        var department = new Department(dto.Name.Trim(), dto.ManagerId);
+        var nameTrimmed = dto.Name.Trim();
+        var exists = await _dbContext.Departments
+            .AnyAsync(d => d.Name == nameTrimmed, cancellationToken);
+        if (exists)
+            throw new InvalidOperationException($"Department with name '{nameTrimmed}' already exists.");
+
+        if (dto.ManagerId.HasValue)
+        {
+            var managerExists = await _dbContext.Users
+                .AnyAsync(u => u.Id == dto.ManagerId.Value, cancellationToken);
+            if (!managerExists)
+                throw new ArgumentException("Specified manager user does not exist.", nameof(dto.ManagerId));
+        }
+
+        var department = new Department(nameTrimmed, dto.ManagerId);
 
         _dbContext.Departments.Add(department);
         await _dbContext.SaveChangesAsync(cancellationToken);
@@ -59,7 +73,21 @@ public class DepartmentService : IDepartmentService
         if (string.IsNullOrWhiteSpace(dto.Name))
             throw new ArgumentException("Department name cannot be empty", nameof(dto.Name));
 
-        department.Name = dto.Name.Trim();
+        var nameTrimmed = dto.Name.Trim();
+        var duplicate = await _dbContext.Departments
+            .AnyAsync(d => d.Id != id && d.Name == nameTrimmed, cancellationToken);
+        if (duplicate)
+            throw new InvalidOperationException($"Another department with name '{nameTrimmed}' already exists.");
+
+        if (dto.ManagerId.HasValue)
+        {
+            var managerExists = await _dbContext.Users
+                .AnyAsync(u => u.Id == dto.ManagerId.Value, cancellationToken);
+            if (!managerExists)
+                throw new ArgumentException("Specified manager user does not exist.", nameof(dto.ManagerId));
+        }
+
+        department.Name = nameTrimmed;
         department.ManagerId = dto.ManagerId;
 
         await _dbContext.SaveChangesAsync(cancellationToken);
@@ -74,6 +102,11 @@ public class DepartmentService : IDepartmentService
 
         if (department == null)
             return false;
+
+        var hasUsers = await _dbContext.Users
+            .AnyAsync(u => u.DepartmentId == id, cancellationToken);
+        if (hasUsers)
+            throw new InvalidOperationException("Cannot delete department because users are assigned to it.");
 
         _dbContext.Departments.Remove(department);
         await _dbContext.SaveChangesAsync(cancellationToken);

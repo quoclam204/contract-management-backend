@@ -1,6 +1,8 @@
 using System.Text;
 using ContractManagement.Api.Services;
 using ContractManagement.Application;
+using ContractManagement.Application.AI.Interfaces;
+using ContractManagement.Application.AI.Services;
 using ContractManagement.Application.Common.Interfaces;
 using ContractManagement.Application.Contract.Interfaces;
 using ContractManagement.Application.Contract.Services;
@@ -15,6 +17,7 @@ using ContractManagement.Infrastructure;
 using ContractManagement.Infrastructure.Messaging;
 using ContractManagement.Infrastructure.Persistence;
 using ContractManagement.Infrastructure.Security;
+using ContractManagement.Infrastructure.Storage;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -68,6 +71,10 @@ builder.Services.AddRabbitMqMessaging(builder.Configuration);
 // Infrastructure Services (Storage, etc.)
 builder.Services.AddInfrastructureServices();
 
+// Storage Services
+var storagePath = builder.Configuration["Storage:LocalPath"] ?? "./storage";
+builder.Services.AddScoped<IStorageProvider>(_ => new LocalStorageProvider(storagePath));
+
 // Application Services (MediatR, FluentValidation, ValidationBehavior)
 builder.Services.AddApplicationServices();
 
@@ -89,6 +96,9 @@ builder.Services.AddScoped<IContractTemplateVersionService, ContractTemplateVers
 builder.Services.AddScoped<ContractManagement.Application.Contracts.Interfaces.IContractService, ContractManagement.Application.Contracts.Services.ContractService>();
 builder.Services.AddScoped<ContractManagement.Application.Contracts.Interfaces.IContractTypeService, ContractManagement.Application.Contracts.Services.ContractTypeService>();
 builder.Services.AddScoped<ContractManagement.Application.Contracts.Interfaces.IContractTemplateVersionService, ContractManagement.Application.Contracts.Services.ContractTemplateVersionService>();
+
+// AI Module Services
+builder.Services.AddScoped<IAIContractAssistantService, MockAIContractAssistantService>();
 
 // Workflow Module Services (Reference Implementation)
 builder.Services.AddScoped<IWorkflowConditionEvaluator, WorkflowConditionEvaluator>();

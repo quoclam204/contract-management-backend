@@ -4,6 +4,7 @@ using ContractManagement.Application.Contracts.Handlers;
 using ContractManagement.Application.Contracts.Services;
 using ContractManagement.Application.Workflow.Events;
 using ContractManagement.Domain.Contracts.Entities;
+using ContractEntity = ContractManagement.Domain.Contracts.Entities.Contract;
 using ContractManagement.Domain.Contracts.Enums;
 using ContractManagement.Infrastructure.Persistence;
 using MediatR;
@@ -30,13 +31,12 @@ public class ContractDetailAndUpdateTests
 
         public Task Publish(object notification, CancellationToken cancellationToken = default)
         {
-            if (notification is INotification n)
-                PublishedEvents.Add(n);
+            if (notification is INotification notif)
+                PublishedEvents.Add(notif);
             return Task.CompletedTask;
         }
 
-        public Task Publish<TNotification>(TNotification notification, CancellationToken cancellationToken = default)
-            where TNotification : INotification
+        public Task Publish<TNotification>(TNotification notification, CancellationToken cancellationToken = default) where TNotification : INotification
         {
             PublishedEvents.Add(notification);
             return Task.CompletedTask;
@@ -45,8 +45,7 @@ public class ContractDetailAndUpdateTests
         public Task<TResponse> Send<TResponse>(IRequest<TResponse> request, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
 
-        public Task Send<TRequest>(TRequest request, CancellationToken cancellationToken = default)
-            where TRequest : IRequest
+        public Task Send<TRequest>(TRequest request, CancellationToken cancellationToken = default) where TRequest : IRequest
             => throw new NotImplementedException();
 
         public Task<object?> Send(object request, CancellationToken cancellationToken = default)
@@ -59,9 +58,9 @@ public class ContractDetailAndUpdateTests
             => throw new NotImplementedException();
     }
 
-    private static Contract CreateValidDraftContract(Guid? id = null)
+    private static ContractEntity CreateValidDraftContract(Guid? id = null)
     {
-        return new Contract
+        return new ContractEntity
         {
             Id = id ?? Guid.NewGuid(),
             ContractNumber = "HD-TEST-001",

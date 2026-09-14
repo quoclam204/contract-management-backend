@@ -1,12 +1,15 @@
 # Inspect Command
 
 ## Purpose
+
 Perform initial inspection of the repository and .claude directory to understand existing structure and configuration before starting work.
 
 ## Usage
+
 Use this command at the very beginning of any work session to familiarize yourself with the current state of the repository and Claude Code configuration.
 
 ## What It Does
+
 1. Lists the .claude directory structure showing all available agents, commands, memory, playbooks, rules, skills, settings, and scripts
 2. Checks for the existence of key files and directories
 3. Shows the current git branch and recent commit history
@@ -17,7 +20,9 @@ Use this command at the very beginning of any work session to familiarize yourse
 8. Provides recommendations for next steps based on findings
 
 ## Output
+
 Provides:
+
 - .claude directory structure and file inventory
 - Current git status and branch information
 - Solution overview and project structure
@@ -27,7 +32,9 @@ Provides:
 - Recommended next steps and available commands
 
 ## Example
+
 Before starting any work:
+
 1. Run this inspect command
 2. Review the output showing:
    - What .claude files are available

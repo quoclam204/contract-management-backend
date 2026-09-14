@@ -3,12 +3,14 @@
 ## Clean Architecture Compliance
 
 ### Layer Dependencies (ENFORCED)
+
 - **API Layer** → Depends on: Application, Infrastructure
 - **Application Layer** → Depends on: Domain ONLY
 - **Domain Layer** → Depends on: NOTHING (zero outward dependencies)
 - **Infrastructure Layer** → Depends on: Application, Domain
 
 ### Dependency Direction (MUST FOLLOW)
+
 ```
 API Layer
     ↓
@@ -19,30 +21,36 @@ Infrastructure Layer ↔ (Application & Domain)
 ```
 
 ### Layer Responsibilities
+
 **Domain Layer:**
+
 - ✅ ALLOWED: Entities, value objects, enums, domain events, domain services, interfaces
 - ❌ PROHIBITED: Direct references to Application, Infrastructure, or API layers
 - ❌ PROHIBITED: EF Core, database access, HTTP contexts, file system, external services
 - ❌ PROHIBITED: DTOs, validation attributes, controller-specific attributes
 
 **Application Layer:**
+
 - ✅ ALLOWED: Use cases, DTOs, interfaces, application events, validators, mapping profiles
 - ❌ PROHIBITED: Direct references to Infrastructure or API layers (except interfaces)
 - ❌ PROHIBITED: EF Core DbContext, database connections, HTTP context
 - ❌ PROHIBITED: Controller-specific code, model binding, action results
 
 **Infrastructure Layer:**
+
 - ✅ ALLOWED: EF Core configurations, DbContext, external service implementations, configuration providers
 - ❌ PROHIBITED: Business logic that belongs in Domain or Application layers
 - ❌ PROHIBITED: Controller-specific code, HTTP context references
 
 **API Layer:**
+
 - ✅ ALLOWED: Controllers, middleware, filters, model binding, action results, HTTP status codes
 - ❌ PROHIBITED: Business logic that belongs in Domain or Application layers
 - ❌ PROHIBITED: Direct database access, EF Core queries in controllers
 - ❌ PROHIBITED: Complex validation logic (use Application layer validators)
 
 ### Module Boundary Rules (Modular Monolith)
+
 1. **Prefer Isolation**: Modules should operate independently when possible
 2. **Interface-Based**: Depend on interfaces, not concrete implementations from other modules
 3. **Event-Driven**: Use events (MediatR) for loose coupling between modules
@@ -51,6 +59,7 @@ Infrastructure Layer ↔ (Application & Domain)
 6. **Upstream Dependencies**: Dependencies should flow from more stable to less stable modules
 
 ### Contract Module Specific Rules
+
 1. **Reference Implementation**: Follow Workflow module patterns exactly
 2. **Database Fidelity**: Entities must match database.sql exactly
 3. **Status Management**: Use enum values 0-7 for contract status
@@ -59,6 +68,7 @@ Infrastructure Layer ↔ (Application & Domain)
 6. **Architectural Compliance**: Maintain Clean Architecture layer separation
 
 ## Violation Examples
+
 ```
 # DO NOT DO THIS - Domain depending on Infrastructure
 using ContractManagement.Infrastructure.Persistence;
@@ -86,18 +96,19 @@ public class ContractController : ControllerBase {
 ```
 
 ## Correct Patterns
+
 ```
 // DO THIS - Clean Domain entity
 public class Contract {
     public Guid Id { get; set; }
     public string ContractNumber { get; set; } = default!;
     // ... other properties
-    
+
     public void Submit() {
         // Business logic in domain entity
         if (Status != ContractStatus.Draft)
             throw new InvalidOperationException("Only draft contracts can be submitted");
-        
+
         Status = ContractStatus.PendingApproval;
         AddDomainEvent(new ContractSubmitted(this));
     }
@@ -127,11 +138,11 @@ public class ContractConfiguration : IEntityTypeConfiguration<Contract> {
 [Route("api/[controller]")]
 public class ContractController : ControllerBase {
     private readonly IMediator _mediator;
-    
+
     public ContractController(IMediator mediator) {
         _mediator = mediator;
     }
-    
+
     [HttpPost("{id}/submit")]
     public async Task<IActionResult> Submit(Guid id) {
         // Thin controller - delegates to Application layer
@@ -143,7 +154,9 @@ public class ContractController : ControllerBase {
 ```
 
 ## Enforcement
+
 These rules are enforced through:
+
 - Code review (/review command)
 - Architectural governance in pull requests
 - Automated checks where possible

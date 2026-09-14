@@ -1,0 +1,9 @@
+warning: in the working copy of 'src/ContractManagement.Infrastructure/Persistence/ContractManagementDbContext.cs', LF will be replaced by CRLF the next time Git touches it
+ .claude/commands/inspect.md                        |  9 [32m++++++++[m[31m-[m
+ .claude/rules/architecture.md                      | 23 [32m+++++++++++++++++[m[31m-----[m
+ .claude/settings.json                              |  2 [32m+[m[31m-[m
+ src/ContractManagement.Api/Program.cs              | 22 [32m+++++++++++++++++++++[m
+ .../Workflow/Services/ApprovalService.cs           |  2 [32m+[m[31m-[m
+ .../Persistence/ContractManagementDbContext.cs     |  9 [32m+++++++[m[31m--[m
+ .../ContractManagement.UnitTests.csproj            |  1 [32m+[m
+ 7 files changed, 58 insertions(+), 10 deletions(-)

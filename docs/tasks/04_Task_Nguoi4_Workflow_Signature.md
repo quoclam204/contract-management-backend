@@ -10,11 +10,11 @@
   - Người 2 sẽ chịu trách nhiệm bắt event này để đổi trạng thái hợp đồng.
 
 ## Signature Module
-- [ ] Thiết kế entity: `SIGNATURES` (Schema `Workflow`).
-- [ ] Định nghĩa interface `ISignatureProvider`. Triển khai MVP: Ký điện tử nội bộ qua Mock hoặc OTP.
-- [ ] Sau khi tất cả các bên đã ký thành công, tiếp tục publish event `ContractSignedEvent(ContractId)`.
-- [ ] (Stretch Goal) Tích hợp ký số thật VNPT-CA/VNeID.
+- [x] Thiết kế entity: `SIGNATURES` (Schema `Workflow`).
+- [x] Định nghĩa interface `ISignatureProvider`. Triển khai MVP: Ký điện tử nội bộ qua Mock hoặc OTP.
+- [x] Sau khi tất cả các bên đã ký thành công, tiếp tục publish event `ContractSignedEvent(ContractId)`.
+- [x] (Stretch Goal) Tích hợp ký số thật VNPT-CA/VNeID.
 
 ## Giao diện & Testing
-- [ ] Phát triển UI trong route/thư mục được giao (VD: `/features/workflows`). Xây dựng màn hình cấu hình luồng duyệt và màn hình danh sách chờ duyệt.
-- [ ] Unit Test cho Approval Workflow (logic duyệt đúng trình tự, nhánh rẽ điều kiện hoạt động đúng).
+- [x] Phát triển UI trong route/thư mục được giao (VD: `/features/workflows`). Xây dựng màn hình cấu hình luồng duyệt và màn hình danh sách chờ duyệt.
+- [x] Unit Test cho Approval Workflow (logic duyệt đúng trình tự, nhánh rẽ điều kiện hoạt động đúng).

@@ -6,6 +6,8 @@ using ContractManagement.Application.AI.Services;
 using ContractManagement.Application.Common.Interfaces;
 using ContractManagement.Application.Contract.Interfaces;
 using ContractManagement.Application.Contract.Services;
+using ContractManagement.Application.Dashboard.Interfaces;
+using ContractManagement.Application.Dashboard.Services;
 using ContractManagement.Application.Identity.Interfaces;
 using ContractManagement.Application.Identity.Services;
 using ContractManagement.Application.Notification.Interfaces;
@@ -99,6 +101,9 @@ builder.Services.AddScoped<ContractManagement.Application.Contracts.Interfaces.I
 
 // AI Module Services
 builder.Services.AddScoped<IAIContractAssistantService, MockAIContractAssistantService>();
+
+// Dashboard Module Services
+builder.Services.AddScoped<IDashboardService, DashboardService>();
 
 // Workflow Module Services (Reference Implementation)
 builder.Services.AddScoped<IWorkflowConditionEvaluator, WorkflowConditionEvaluator>();

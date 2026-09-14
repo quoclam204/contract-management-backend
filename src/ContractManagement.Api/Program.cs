@@ -14,6 +14,7 @@ using ContractManagement.Domain.Identity.Enums;
 using ContractManagement.Infrastructure.Messaging;
 using ContractManagement.Infrastructure.Persistence;
 using ContractManagement.Infrastructure.Security;
+using Hangfire;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -64,6 +65,17 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 // Contract Module Services
 builder.Services.AddScoped<IContractTypeService, ContractTypeService>();
 builder.Services.AddScoped<IContractTemplateVersionService, ContractTemplateVersionService>();
+builder.Services.AddScoped<IContractExpiryJobService, ContractExpiryJobService>();
+
+// Hangfire Background Services Configuration
+builder.Services.AddHangfire(config =>
+{
+    if (!string.IsNullOrEmpty(connectionString))
+    {
+        config.UseSqlServerStorage(connectionString);
+    }
+});
+builder.Services.AddHangfireServer();
 
 // Workflow Module Services (Reference Implementation)
 builder.Services.AddScoped<IWorkflowConditionEvaluator, WorkflowConditionEvaluator>();
@@ -130,6 +142,21 @@ app.MapControllers();
 if (app.Environment.IsDevelopment())
 {
     app.MapGet("/", () => Results.Redirect("/swagger"));
+}
+
+// Schedule Hangfire Contract Expiry Notification Job
+try
+{
+    using var scope = app.Services.CreateScope();
+    var recurringJobManager = scope.ServiceProvider.GetService<IRecurringJobManager>();
+    recurringJobManager?.AddOrUpdate<IContractExpiryJobService>(
+        "contract-expiry-notification-job",
+        service => service.ProcessContractExpirationsAsync(CancellationToken.None),
+        Cron.Daily);
+}
+catch (Exception ex)
+{
+    app.Logger.LogWarning(ex, "Could not register Hangfire recurring job on startup.");
 }
 
 app.Run();

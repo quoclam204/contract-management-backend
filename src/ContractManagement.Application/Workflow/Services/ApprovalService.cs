@@ -38,7 +38,7 @@ public class ApprovalService : IApprovalService
             .Where(s => s.ContractId == request.ContractId)
             .ToListAsync();
 
-        if (existingSteps.Any(s => s.Decision == ApprovalDecision.Pending))
+        if (existingSteps.Any(s => s.Decision == ApprovalDecision.Pending) && !existingSteps.Any(s => s.Decision == ApprovalDecision.Rejected))
         {
             throw new InvalidOperationException("Hợp đồng này đang trong tiến trình phê duyệt (có bước đang ở trạng thái Chờ duyệt - Pending). Không thể đệ trình lại lúc này.");
         }

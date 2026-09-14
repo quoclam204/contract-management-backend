@@ -15,11 +15,14 @@ using ContractManagement.Application.Notification.Services;
 using ContractManagement.Application.Workflow.Interfaces;
 using ContractManagement.Application.Workflow.Services;
 using ContractManagement.Domain.Identity.Enums;
+using ContractManagement.Infrastructure.AI;
 using ContractManagement.Infrastructure;
 using ContractManagement.Infrastructure.Messaging;
 using ContractManagement.Infrastructure.Persistence;
 using ContractManagement.Infrastructure.Security;
 using ContractManagement.Infrastructure.Storage;
+using Hangfire;
+using Hangfire.SqlServer;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -57,6 +60,8 @@ builder.Services.AddDbContext<ContractManagementDbContext>(options =>
 
 // DbContext Interfaces
 builder.Services.AddScoped<IWorkflowDbContext>(sp => sp.GetRequiredService<ContractManagementDbContext>());
+builder.Services.AddScoped<IAiDbContext>(sp => sp.GetRequiredService<ContractManagementDbContext>());
+// Notification Module Services
 builder.Services.AddScoped<IContractManagementDbContext>(sp => sp.GetRequiredService<ContractManagementDbContext>());
 builder.Services.AddScoped<ContractManagement.Application.Contracts.Interfaces.IContractDbContext>(sp => sp.GetRequiredService<ContractManagementDbContext>());
 builder.Services.AddScoped<IIdentityDbContext>(sp => sp.GetRequiredService<ContractManagementDbContext>());
@@ -76,6 +81,7 @@ builder.Services.AddInfrastructureServices();
 // Storage Services
 var storagePath = builder.Configuration["Storage:LocalPath"] ?? "./storage";
 builder.Services.AddScoped<IStorageProvider>(_ => new LocalStorageProvider(storagePath));
+builder.Services.AddScoped<IDocumentTextExtractor, DocumentTextExtractor>();
 
 // Application Services (MediatR, FluentValidation, ValidationBehavior)
 builder.Services.AddApplicationServices();
@@ -103,6 +109,22 @@ builder.Services.AddScoped<ContractManagement.Application.Contracts.Interfaces.I
 
 // AI Module Services
 builder.Services.AddScoped<IAIContractAssistantService, MockAIContractAssistantService>();
+builder.Services.AddScoped<IAIAnalysisJobService, AIAnalysisJobService>();
+
+// Hangfire — AI analysis background jobs (SqlServer storage reusing DefaultConnection)
+// Application layer remains free of Hangfire types; Hangfire is API/Infrastructure concern only.
+if (!string.IsNullOrEmpty(connectionString))
+{
+    builder.Services.AddHangfire(config => config
+        .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+        .UseSimpleAssemblyNameTypeSerializer()
+        .UseRecommendedSerializerSettings()
+        .UseSqlServerStorage(connectionString, new SqlServerStorageOptions
+        {
+            PrepareSchemaIfNecessary = true
+        }));
+    builder.Services.AddHangfireServer();
+}
 
 // Workflow Module Services (Reference Implementation)
 builder.Services.AddScoped<IWorkflowConditionEvaluator, WorkflowConditionEvaluator>();

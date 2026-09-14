@@ -17,7 +17,8 @@ public class ContractManagementDbContext : DbContext,
     IWorkflowDbContext, 
     IIdentityDbContext, 
     IPartnerDbContext, 
-    INotificationDbContext
+    INotificationDbContext,
+    IAttachmentDbContext
 {
     public ContractManagementDbContext(DbContextOptions<ContractManagementDbContext> options)
         : base(options)
@@ -34,6 +35,7 @@ public class ContractManagementDbContext : DbContext,
     public DbSet<Department> Departments => Set<Department>();
     public DbSet<User> Users => Set<User>();
     public DbSet<Partner> Partners => Set<Partner>();
+    public DbSet<Attachment> Attachments => Set<Attachment>();
 
     public DbSet<DomainNotification.Notification> Notifications => Set<DomainNotification.Notification>();
 

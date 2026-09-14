@@ -14,6 +14,7 @@ using ContractManagement.Application.Workflow.Interfaces;
 using ContractManagement.Application.Workflow.Services;
 using ContractManagement.Domain.Identity.Enums;
 using ContractManagement.Infrastructure.Messaging;
+using ContractManagement.Infrastructure.AI;
 using ContractManagement.Infrastructure.Persistence;
 using ContractManagement.Infrastructure.Security;
 using ContractManagement.Infrastructure.Storage;
@@ -42,6 +43,7 @@ builder.Services.AddDbContext<ContractManagementDbContext>(options =>
 
 // DbContext Interfaces
 builder.Services.AddScoped<IWorkflowDbContext>(sp => sp.GetRequiredService<ContractManagementDbContext>());
+builder.Services.AddScoped<IAiDbContext>(sp => sp.GetRequiredService<ContractManagementDbContext>());
 // Notification Module Services
 builder.Services.AddScoped<INotificationDbContext>(sp => sp.GetRequiredService<ContractManagementDbContext>());
 builder.Services.AddScoped<INotificationService, NotificationService>();
@@ -55,6 +57,7 @@ builder.Services.AddScoped<IPartnerDbContext>(sp => sp.GetRequiredService<Contra
 // Storage Services
 var storagePath = builder.Configuration["Storage:LocalPath"] ?? "./storage";
 builder.Services.AddScoped<IStorageProvider>(_ => new LocalStorageProvider(storagePath));
+builder.Services.AddScoped<IDocumentTextExtractor, DocumentTextExtractor>();
 
 // Application Services (MediatR, FluentValidation, ValidationBehavior)
 builder.Services.AddApplicationServices();

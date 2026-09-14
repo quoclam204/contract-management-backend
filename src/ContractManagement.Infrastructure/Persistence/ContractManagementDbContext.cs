@@ -1,9 +1,11 @@
+using ContractManagement.Application.AI.Interfaces;
 using ContractManagement.Application.Common.Interfaces;
 using ContractManagement.Application.Contract.Interfaces;
 using ContractManagement.Application.Identity.Interfaces;
 using ContractManagement.Application.Notification.Interfaces;
 using ContractManagement.Application.Workflow.Interfaces;
 using ContractManagement.Domain;
+using ContractManagement.Domain.AI.Entities;
 using ContractManagement.Domain.Contract.Entities;
 using ContractManagement.Domain.Identity.Entities;
 using ContractManagement.Domain.Workflow.Entities;
@@ -12,12 +14,13 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ContractManagement.Infrastructure.Persistence;
 
-public class ContractManagementDbContext : DbContext, 
-    IContractManagementDbContext, 
-    IWorkflowDbContext, 
-    IIdentityDbContext, 
-    IPartnerDbContext, 
-    INotificationDbContext
+public class ContractManagementDbContext : DbContext,
+    IContractManagementDbContext,
+    IWorkflowDbContext,
+    IIdentityDbContext,
+    IPartnerDbContext,
+    INotificationDbContext,
+    IAiDbContext
 {
     public ContractManagementDbContext(DbContextOptions<ContractManagementDbContext> options)
         : base(options)
@@ -30,7 +33,8 @@ public class ContractManagementDbContext : DbContext,
     public DbSet<ContractType> ContractTypes => Set<ContractType>();
     public DbSet<ContractTemplateVersion> ContractTemplateVersions => Set<ContractTemplateVersion>();
     public DbSet<Contract> Contracts => Set<Contract>();
-    
+    public DbSet<AiAnalysisResult> AiAnalysisResults => Set<AiAnalysisResult>();
+
     public DbSet<Department> Departments => Set<Department>();
     public DbSet<User> Users => Set<User>();
     public DbSet<Partner> Partners => Set<Partner>();

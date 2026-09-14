@@ -12,7 +12,7 @@ namespace ContractManagement.Api.Controllers.Identity;
 [ApiController]
 [Route("api/departments")]
 [Tags("Department Management (Người 1 - Lead)")]
-[Authorize(Policy = "RequireManager")]
+[Authorize]
 public class DepartmentsController : ControllerBase
 {
     private readonly IDepartmentService _departmentService;
@@ -23,7 +23,7 @@ public class DepartmentsController : ControllerBase
     }
 
     /// <summary>
-    /// Lấy danh sách tất cả phòng ban
+    /// Lấy danh sách tất cả phòng ban (Mọi người dùng đã đăng nhập)
     /// </summary>
     [HttpGet]
     [ProducesResponseType(typeof(IEnumerable<DepartmentDto>), StatusCodes.Status200OK)]
@@ -34,7 +34,7 @@ public class DepartmentsController : ControllerBase
     }
 
     /// <summary>
-    /// Lấy thông tin chi tiết phòng ban theo Id
+    /// Lấy thông tin chi tiết phòng ban theo Id (Mọi người dùng đã đăng nhập)
     /// </summary>
     [HttpGet("{id:guid}")]
     [ProducesResponseType(typeof(DepartmentDto), StatusCodes.Status200OK)]
@@ -49,11 +49,13 @@ public class DepartmentsController : ControllerBase
     }
 
     /// <summary>
-    /// Tạo mới một phòng ban
+    /// Tạo mới một phòng ban (Yêu cầu quyền Manager trở lên)
     /// </summary>
     [HttpPost]
+    [Authorize(Policy = "RequireManager")]
     [ProducesResponseType(typeof(DepartmentDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Create([FromBody] CreateDepartmentDto dto, CancellationToken cancellationToken)
     {
         try
@@ -65,15 +67,21 @@ public class DepartmentsController : ControllerBase
         {
             return BadRequest(new { error = ex.Message });
         }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { error = ex.Message });
+        }
     }
 
     /// <summary>
-    /// Cập nhật thông tin phòng ban
+    /// Cập nhật thông tin phòng ban (Yêu cầu quyền Manager trở lên)
     /// </summary>
     [HttpPut("{id:guid}")]
+    [Authorize(Policy = "RequireManager")]
     [ProducesResponseType(typeof(DepartmentDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateDepartmentDto dto, CancellationToken cancellationToken)
     {
         try
@@ -88,20 +96,33 @@ public class DepartmentsController : ControllerBase
         {
             return BadRequest(new { error = ex.Message });
         }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { error = ex.Message });
+        }
     }
 
     /// <summary>
-    /// Xóa phòng ban theo Id
+    /// Xóa phòng ban theo Id (Chỉ Admin mới có quyền xóa)
     /// </summary>
     [HttpDelete("{id:guid}")]
+    [Authorize(Policy = "RequireAdmin")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
     {
-        var success = await _departmentService.DeleteAsync(id, cancellationToken);
-        if (!success)
-            return NotFound(new { error = $"Department with ID {id} not found." });
+        try
+        {
+            var success = await _departmentService.DeleteAsync(id, cancellationToken);
+            if (!success)
+                return NotFound(new { error = $"Department with ID {id} not found." });
 
-        return NoContent();
+            return NoContent();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { error = ex.Message });
+        }
     }
 }

@@ -1,6 +1,7 @@
 using ContractManagement.Application.Identity.DTOs;
 using ContractManagement.Application.Identity.Interfaces;
 using ContractManagement.Domain.Identity.Entities;
+using ContractManagement.Domain.Identity.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace ContractManagement.Application.Identity.Services;
@@ -28,7 +29,7 @@ public class AuthService : IAuthService
 
         var emailNormalized = request.Email.Trim().ToLowerInvariant();
         var user = await _dbContext.Users
-            .FirstOrDefaultAsync(u => u.Email.ToLower() == emailNormalized, cancellationToken);
+            .FirstOrDefaultAsync(u => u.Email == emailNormalized, cancellationToken);
 
         if (user == null || !_passwordHasher.VerifyPassword(request.Password, user.PasswordHash))
             throw new UnauthorizedAccessException("Invalid email or password.");
@@ -55,7 +56,49 @@ public class AuthService : IAuthService
 
         var emailNormalized = request.Email.Trim().ToLowerInvariant();
         var emailExists = await _dbContext.Users
-            .AnyAsync(u => u.Email.ToLower() == emailNormalized, cancellationToken);
+            .AnyAsync(u => u.Email == emailNormalized, cancellationToken);
+
+        if (emailExists)
+            throw new InvalidOperationException($"User with email '{request.Email}' already exists.");
+
+        if (request.DepartmentId.HasValue)
+        {
+            var deptExists = await _dbContext.Departments
+                .AnyAsync(d => d.Id == request.DepartmentId.Value, cancellationToken);
+            if (!deptExists)
+                throw new ArgumentException("Specified department does not exist.", nameof(request.DepartmentId));
+        }
+
+        var passwordHash = _passwordHasher.HashPassword(request.Password);
+        // Public registration always assigns Staff role to prevent privilege escalation
+        var user = new User(
+            request.FullName.Trim(),
+            request.Email.Trim(),
+            passwordHash,
+            UserRole.Staff,
+            request.DepartmentId
+        );
+
+        _dbContext.Users.Add(user);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return ToDto(user);
+    }
+
+    public async Task<UserDto> CreateUserAsync(CreateUserDto request, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(request.FullName))
+            throw new ArgumentException("Full name is required.", nameof(request.FullName));
+
+        if (string.IsNullOrWhiteSpace(request.Email))
+            throw new ArgumentException("Email is required.", nameof(request.Email));
+
+        if (string.IsNullOrWhiteSpace(request.Password) || request.Password.Length < 6)
+            throw new ArgumentException("Password must be at least 6 characters.", nameof(request.Password));
+
+        var emailNormalized = request.Email.Trim().ToLowerInvariant();
+        var emailExists = await _dbContext.Users
+            .AnyAsync(u => u.Email == emailNormalized, cancellationToken);
 
         if (emailExists)
             throw new InvalidOperationException($"User with email '{request.Email}' already exists.");

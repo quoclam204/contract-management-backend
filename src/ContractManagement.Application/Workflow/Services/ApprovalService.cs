@@ -255,7 +255,9 @@ public class ApprovalService : IApprovalService
         else if (steps.All(s => s.Decision == ApprovalDecision.Approved))
             overallStatus = "Approved";
 
-        var currentPending = steps.FirstOrDefault(s => s.Decision == ApprovalDecision.Pending);
+        var currentPending = overallStatus == "Pending"
+            ? steps.FirstOrDefault(s => s.Decision == ApprovalDecision.Pending)
+            : null;
 
         var stepDetails = new List<ApprovalStepDetailDto>();
         foreach (var s in steps.OrderBy(s => s.StepOrder))

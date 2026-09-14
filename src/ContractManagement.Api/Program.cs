@@ -47,6 +47,9 @@ builder.Services.AddMediatR(cfg =>
 builder.Services.AddScoped<IWorkflowConditionEvaluator, WorkflowConditionEvaluator>();
 builder.Services.AddScoped<IWorkflowService, WorkflowService>();
 builder.Services.AddScoped<IApprovalService, ApprovalService>();
+builder.Services.AddScoped<ISignatureProvider, ContractManagement.Application.Workflow.Services.SignatureProviders.MockSignatureProvider>();
+builder.Services.AddScoped<ISignatureProvider, ContractManagement.Application.Workflow.Services.SignatureProviders.OtpSignatureProvider>();
+builder.Services.AddScoped<ISignatureService, SignatureService>();
 
 // Contract Module Services
 builder.Services.AddScoped<IContractService, ContractService>();

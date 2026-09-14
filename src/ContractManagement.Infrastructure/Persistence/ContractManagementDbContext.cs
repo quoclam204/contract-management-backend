@@ -16,6 +16,7 @@ public class ContractManagementDbContext : DbContext, IWorkflowDbContext, IContr
     public DbSet<WorkflowDefinition> WorkflowDefinitions => Set<WorkflowDefinition>();
     public DbSet<WorkflowStep> WorkflowSteps => Set<WorkflowStep>();
     public DbSet<ApprovalStep> ApprovalSteps => Set<ApprovalStep>();
+    public DbSet<Signature> Signatures => Set<Signature>();
     public DbSet<Contract> Contracts => Set<Contract>();
     public DbSet<ContractType> ContractTypes => Set<ContractType>();
     public DbSet<ContractTemplateVersion> ContractTemplateVersions => Set<ContractTemplateVersion>();

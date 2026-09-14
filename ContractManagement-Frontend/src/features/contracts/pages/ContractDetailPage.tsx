@@ -6,6 +6,9 @@ import { ContractStatus, CONTRACT_STATUS_MAP } from '../types/contract.types';
 import { getContractById, submitContract, getApprovalProgress } from '../services/contractApi';
 import { ContractStatusBadge } from '../components/ContractStatusBadge';
 import { EditContractModal } from '../components/EditContractModal';
+import { SignContractModal } from '../../workflows/components/SignContractModal';
+import { getSignaturesByContractId, getSignatureStatus } from '../../workflows/services/workflowApi';
+import type { SignatureDto } from '../../workflows/types/workflow.types';
 
 interface ContractDetailPageProps {
   contractId: string;
@@ -15,6 +18,7 @@ interface ContractDetailPageProps {
 export const ContractDetailPage: FC<ContractDetailPageProps> = ({ contractId, onBack }) => {
   const queryClient = useQueryClient();
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isSignModalOpen, setIsSignModalOpen] = useState(false);
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   // Fetch contract detail
@@ -34,6 +38,20 @@ export const ContractDetailPage: FC<ContractDetailPageProps> = ({ contractId, on
     queryKey: ['approval-progress', contractId],
     queryFn: () => getApprovalProgress(contractId),
     enabled: !!contract && contract.status !== ContractStatus.Draft,
+  });
+
+  // Fetch signatures & signature status if contract is Approved or Signed
+  const canHaveSignatures = !!contract && (contract.status === ContractStatus.Approved || contract.status === ContractStatus.Signed);
+  const { data: signatures = [] } = useQuery<SignatureDto[]>({
+    queryKey: ['signatures', contractId],
+    queryFn: () => getSignaturesByContractId(contractId),
+    enabled: canHaveSignatures,
+  });
+
+  const { data: signatureStatus } = useQuery({
+    queryKey: ['signature-status', contractId],
+    queryFn: () => getSignatureStatus(contractId),
+    enabled: canHaveSignatures,
   });
 
   // Submit contract mutation
@@ -206,6 +224,20 @@ export const ContractDetailPage: FC<ContractDetailPageProps> = ({ contractId, on
               </svg>
               <span>Không thể sửa ({statusInfo?.label})</span>
             </div>
+          )}
+
+          {/* Sign Button: ONLY for Approved contracts */}
+          {contract.status === ContractStatus.Approved && (
+            <button
+              type="button"
+              onClick={() => setIsSignModalOpen(true)}
+              className="inline-flex items-center gap-2 px-5 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-xl shadow-xs transition-all focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+              </svg>
+              <span>Ký số hợp đồng</span>
+            </button>
           )}
 
           {/* Submit Button: ONLY for Draft contracts */}
@@ -446,6 +478,145 @@ export const ContractDetailPage: FC<ContractDetailPageProps> = ({ contractId, on
         </div>
       )}
 
+      {/* Digital Signature & Tracking (for Approved & Signed contracts) */}
+      {canHaveSignatures && (
+        <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xs space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 pb-4">
+            <div>
+              <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <svg className="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+                Chữ ký điện tử & Ký kết hợp đồng
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Yêu cầu đầy đủ chữ ký từ Đại diện Nội bộ và Đại diện Đối tác để hợp đồng có hiệu lực pháp lý
+              </p>
+            </div>
+
+            {contract.status === ContractStatus.Approved && !signatureStatus?.isFullySigned && (
+              <button
+                type="button"
+                onClick={() => setIsSignModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-xs transition-colors shrink-0"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                </svg>
+                <span>Thực hiện ký số ngay</span>
+              </button>
+            )}
+          </div>
+
+          {/* 2-Party Signature Progress Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Internal Signer */}
+            <div className={`p-4 rounded-xl border transition-all ${
+              signatureStatus?.hasInternalSignature
+                ? 'bg-emerald-50/60 border-emerald-200'
+                : 'bg-slate-50 border-slate-200'
+            }`}>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-800">1. Đại diện Nội bộ</span>
+                {signatureStatus?.hasInternalSignature ? (
+                  <span className="text-xs font-semibold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    ✓ Đã ký
+                  </span>
+                ) : (
+                  <span className="text-xs font-medium text-amber-700 bg-amber-100/80 px-2 py-0.5 rounded-full">
+                    Chưa ký
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-500 mt-2">
+                {signatureStatus?.hasInternalSignature
+                  ? 'Đại diện thẩm quyền của công ty đã ký duyệt và xác thực.'
+                  : 'Cần tài khoản nội bộ (Admin/Manager) ký phê duyệt.'}
+              </p>
+            </div>
+
+            {/* Partner Signer */}
+            <div className={`p-4 rounded-xl border transition-all ${
+              signatureStatus?.hasPartnerSignature
+                ? 'bg-emerald-50/60 border-emerald-200'
+                : 'bg-slate-50 border-slate-200'
+            }`}>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-800">2. Đại diện Đối tác</span>
+                {signatureStatus?.hasPartnerSignature ? (
+                  <span className="text-xs font-semibold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    ✓ Đã ký
+                  </span>
+                ) : (
+                  <span className="text-xs font-medium text-amber-700 bg-amber-100/80 px-2 py-0.5 rounded-full">
+                    Chưa ký
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-500 mt-2">
+                {signatureStatus?.hasPartnerSignature
+                  ? 'Đại diện hợp pháp của đối tác đã ký số và xác nhận.'
+                  : 'Cần đại diện đối tác ký xác nhận thông qua OTP hoặc Mock CA.'}
+              </p>
+            </div>
+          </div>
+
+          {/* Signatures List Table */}
+          {signatures.length > 0 ? (
+            <div className="overflow-x-auto pt-2">
+              <table className="w-full text-left text-xs border border-slate-100 rounded-xl overflow-hidden">
+                <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-100">
+                  <tr>
+                    <th className="py-2.5 px-4">Bên ký</th>
+                    <th className="py-2.5 px-4">Họ và tên người ký</th>
+                    <th className="py-2.5 px-4">Phương thức</th>
+                    <th className="py-2.5 px-4">Thời gian ký</th>
+                    <th className="py-2.5 px-4">Chữ ký điện tử / Băm SHA-256</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {signatures.map((sig: SignatureDto) => (
+                    <tr key={sig.id} className="hover:bg-slate-50/70">
+                      <td className="py-3 px-4 font-semibold">
+                        {sig.signerType === 0 ? (
+                          <span className="text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">
+                            Nội bộ
+                          </span>
+                        ) : (
+                          <span className="text-cyan-700 bg-cyan-50 px-2 py-0.5 rounded border border-cyan-200">
+                            Đối tác
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4 font-medium text-slate-900">
+                        {sig.signerNameSnapshot}
+                      </td>
+                      <td className="py-3 px-4 text-slate-600">
+                        {sig.signatureMethod === 0
+                          ? 'Mock SHA-256'
+                          : sig.signatureMethod === 1
+                          ? 'OTP SMS'
+                          : 'Digital CA'}
+                      </td>
+                      <td className="py-3 px-4 text-slate-600">
+                        {formatDate(sig.signedAt)}
+                      </td>
+                      <td className="py-3 px-4 font-mono text-[11px] text-slate-500 max-w-xs truncate" title={sig.signatureHash}>
+                        {sig.signatureHash}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="p-4 bg-slate-50/70 rounded-xl text-center text-xs text-slate-400 border border-slate-100">
+              Chưa có chữ ký nào được ghi nhận cho hợp đồng này.
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Edit Contract Modal */}
       <EditContractModal
         contract={contract}
@@ -461,6 +632,26 @@ export const ContractDetailPage: FC<ContractDetailPageProps> = ({ contractId, on
           setTimeout(() => setNotification(null), 5000);
         }}
       />
+
+      {/* Sign Contract Modal */}
+      {contract && (
+        <SignContractModal
+          isOpen={isSignModalOpen}
+          contract={contract}
+          onClose={() => setIsSignModalOpen(false)}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['contract', contractId] });
+            queryClient.invalidateQueries({ queryKey: ['contracts'] });
+            queryClient.invalidateQueries({ queryKey: ['signatures', contractId] });
+            queryClient.invalidateQueries({ queryKey: ['signature-status', contractId] });
+            setNotification({
+              type: 'success',
+              message: 'Đã ký hợp đồng thành công!',
+            });
+            setTimeout(() => setNotification(null), 5000);
+          }}
+        />
+      )}
     </div>
   );
 };

@@ -8,7 +8,7 @@ public interface IWorkflowDbContext
     DbSet<WorkflowDefinition> WorkflowDefinitions { get; }
     DbSet<WorkflowStep> WorkflowSteps { get; }
     DbSet<ApprovalStep> ApprovalSteps { get; }
-    DbSet<Signature> Signatures { get; }
+    DbSet<Signature> Signatures => default!;
     Task<Guid> GetDefaultApproverIdAsync(CancellationToken cancellationToken = default);
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

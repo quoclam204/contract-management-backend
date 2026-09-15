@@ -61,7 +61,7 @@ public class AIContractAssistantAnalysisTests : IDisposable
 
     private void SeedContract(Guid id, Guid ownerId)
     {
-        _context.Contracts.Add(new DomainContract
+        ((IContractManagementDbContext)_context).Contracts.Add(new DomainContract
         {
             Id = id,
             ContractNumber = "HD-" + id.ToString()[..8],

@@ -6,6 +6,7 @@ using ContractManagement.Application.AI.Services;
 using ContractManagement.Application.Common.Interfaces;
 using ContractManagement.Application.Contract.Interfaces;
 using ContractManagement.Application.Contract.Services;
+using ContractManagement.Infrastructure.Email;
 using ContractManagement.Application.Dashboard.Interfaces;
 using ContractManagement.Application.Dashboard.Services;
 using ContractManagement.Application.Identity.Interfaces;
@@ -107,6 +108,12 @@ builder.Services.AddScoped<ContractManagement.Application.Contracts.Interfaces.I
 builder.Services.AddScoped<ContractManagement.Application.Contracts.Interfaces.IContractTypeService, ContractManagement.Application.Contracts.Services.ContractTypeService>();
 builder.Services.AddScoped<ContractManagement.Application.Contracts.Interfaces.IContractTemplateVersionService, ContractManagement.Application.Contracts.Services.ContractTemplateVersionService>();
 
+// Email (FR-08) — minimal SMTP abstraction
+builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
+
+// Contract Expiry (FR-08)
+builder.Services.AddScoped<ContractManagement.Application.Contracts.Interfaces.IContractExpiryJobService, ContractManagement.Application.Contracts.Services.ContractExpiryJobService>();
+
 // AI Module Services
 builder.Services.AddScoped<IAIContractAssistantService, MockAIContractAssistantService>();
 builder.Services.AddScoped<IAIAnalysisJobService, AIAnalysisJobService>();
@@ -124,6 +131,10 @@ if (!string.IsNullOrEmpty(connectionString))
             PrepareSchemaIfNecessary = true
         }));
     builder.Services.AddHangfireServer();
+
+    // FR-08: retry on DB/email transient failures, prevent overlapping executions
+    GlobalJobFilters.Filters.Add(new AutomaticRetryAttribute { Attempts = 3, LogEvents = true, OnAttemptsExceeded = AttemptsExceededAction.Fail });
+    GlobalJobFilters.Filters.Add(new DisableConcurrentExecutionAttribute(600));
 }
 
 // Workflow Module Services (Reference Implementation)
@@ -170,6 +181,22 @@ builder.Services.AddAuthorization(options =>
 });
 
 var app = builder.Build();
+
+// Hangfire recurring job — FR-08 contract expiry (daily)
+try
+{
+    using var scope = app.Services.CreateScope();
+    var recurring = scope.ServiceProvider.GetService<IRecurringJobManager>();
+    recurring?.AddOrUpdate<ContractManagement.Application.Contracts.Interfaces.IContractExpiryJobService>(
+        "contract-expiry-notification-job",
+        service => service.ProcessContractExpirationsAsync(CancellationToken.None),
+        Cron.Daily);
+}
+catch (Exception ex)
+{
+    var logger = app.Services.GetService<ILoggerFactory>()?.CreateLogger("Hangfire");
+    logger?.LogWarning(ex, "Failed to schedule contract-expiry-notification-job");
+}
 
 if (app.Environment.IsDevelopment())
 {

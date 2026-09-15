@@ -6,6 +6,7 @@ using Hangfire;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace ContractManagement.Api.Controllers.AI;
 
@@ -27,6 +28,7 @@ public class AIContractAssistantController : ControllerBase
     private readonly IBackgroundJobClient _backgroundJobClient;
     private readonly ILogger<AIContractAssistantController> _logger;
 
+    [ActivatorUtilitiesConstructor]
     public AIContractAssistantController(
         IAIContractAssistantService aiService,
         IContractManagementDbContext contractContext,

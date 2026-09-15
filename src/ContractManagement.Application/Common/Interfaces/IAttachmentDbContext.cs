@@ -8,7 +8,7 @@ namespace ContractManagement.Application.Common.Interfaces
     public interface IAttachmentDbContext
     {
         DbSet<Attachment> Attachments { get; }
-        DbSet<ContractManagement.Domain.Contract.Entities.Contract> Contracts { get; }
+        DbSet<ContractManagement.Domain.Contracts.Entities.Contract> Contracts { get; }
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
     }
 }

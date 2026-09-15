@@ -9,6 +9,7 @@ using ContractManagement.Domain.Contracts.Entities;
 using ContractEntity = ContractManagement.Domain.Contracts.Entities.Contract;
 using ContractManagement.Domain.Contracts.Enums;
 using ContractManagement.Domain.Workflow.Entities;
+using ContractManagement.Application.Notification.Services;
 using ContractManagement.Infrastructure.Persistence;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -325,9 +326,12 @@ public class SubmitContractTests
         // Arrange
         using var context = CreateInMemoryDbContext();
         var mediator = new FakeMediator();
+        var notificationService = new NotificationService(context);
         var handler = new WorkflowApprovedEventHandler(
             context,
             mediator,
+            notificationService,
+            context,
             NullLogger<WorkflowApprovedEventHandler>.Instance);
 
         var contract = new ContractEntity
@@ -359,6 +363,85 @@ public class SubmitContractTests
         var approvedEvent = mediator.PublishedEvents.OfType<ContractApprovedEvent>().FirstOrDefault();
         Assert.NotNull(approvedEvent);
         Assert.Equal(contract.Id, approvedEvent.ContractId);
+    }
+
+    [Fact]
+    public async Task WorkflowApprovedEventHandler_CreatesSignRequest_WithCorrectFields()
+    {
+        // Arrange
+        using var context = CreateInMemoryDbContext();
+        var mediator = new FakeMediator();
+        var notificationService = new NotificationService(context);
+        var handler = new WorkflowApprovedEventHandler(
+            context, mediator, notificationService, context,
+            NullLogger<WorkflowApprovedEventHandler>.Instance);
+
+        var ownerId = Guid.NewGuid();
+        var contract = new ContractEntity
+        {
+            Id = Guid.NewGuid(), ContractNumber = "HD-SIGN-001",
+            ContractTypeId = Guid.NewGuid(), TemplateVersionUsedId = Guid.NewGuid(),
+            PartnerId = Guid.NewGuid(), OwnerId = ownerId,
+            Title = "Hop dong sau phe duyet can ky", Value = 300_000_000m,
+            EffectiveDate = DateTime.UtcNow, ExpiryDate = DateTime.UtcNow.AddYears(1),
+            Status = ContractStatus.PendingApproval, RowVersion = new byte[] { 0, 0, 0, 1 }
+        };
+        context.Contracts.Add(contract);
+        await context.SaveChangesAsync();
+
+        // Act
+        await handler.Handle(new WorkflowApprovedEvent(contract.Id), CancellationToken.None);
+
+        // Assert: SignRequest for OwnerId
+        var notifs = await context.Notifications
+            .Where(n => n.ContractId == contract.Id && n.Type == ContractManagement.Domain.Notification.Enums.NotificationType.SignRequest)
+            .ToListAsync();
+        var notif = Assert.Single(notifs);
+        Assert.Equal(ownerId, notif.UserId);
+        Assert.Equal(contract.Id, notif.ContractId);
+        Assert.Equal(ContractManagement.Domain.Notification.Enums.NotificationType.SignRequest, notif.Type);
+        Assert.False(notif.IsRead);
+    }
+
+    [Fact]
+    public async Task WorkflowApprovedEventHandler_DuplicatePrevention_OnSecondInvoke()
+    {
+        // Arrange
+        using var context = CreateInMemoryDbContext();
+        var mediator = new FakeMediator();
+        var notificationService = new NotificationService(context);
+        var handler = new WorkflowApprovedEventHandler(
+            context, mediator, notificationService, context,
+            NullLogger<WorkflowApprovedEventHandler>.Instance);
+
+        var ownerId = Guid.NewGuid();
+        var contract = new ContractEntity
+        {
+            Id = Guid.NewGuid(), ContractNumber = "HD-SIGN-DUP-001",
+            ContractTypeId = Guid.NewGuid(), TemplateVersionUsedId = Guid.NewGuid(),
+            PartnerId = Guid.NewGuid(), OwnerId = ownerId,
+            Title = "Hop dong test trung lap SignRequest", Value = 300_000_000m,
+            EffectiveDate = DateTime.UtcNow, ExpiryDate = DateTime.UtcNow.AddYears(1),
+            Status = ContractStatus.PendingApproval, RowVersion = new byte[] { 0, 0, 0, 1 }
+        };
+        context.Contracts.Add(contract);
+        await context.SaveChangesAsync();
+
+        await handler.Handle(new WorkflowApprovedEvent(contract.Id), CancellationToken.None);
+        // Reset contract to PendingApproval to allow second Handle to reach SignRequest logic without Approve() throwing
+        // Instead re-create a new contract with same OwnerId to test duplicate check directly via AnyAsync:
+        // Simpler: call handler again with same contractId after resetting status to PendingApproval in DB
+        var c2 = await context.Contracts.FindAsync(contract.Id);
+        c2!.Status = ContractStatus.PendingApproval;
+        await context.SaveChangesAsync();
+
+        // Act: second invocation — should skip duplicate
+        await handler.Handle(new WorkflowApprovedEvent(contract.Id), CancellationToken.None);
+
+        // Assert: still exactly 1 SignRequest
+        var count = await context.Notifications.CountAsync(n =>
+            n.ContractId == contract.Id && n.UserId == ownerId && n.Type == ContractManagement.Domain.Notification.Enums.NotificationType.SignRequest);
+        Assert.Equal(1, count);
     }
 
     [Fact]

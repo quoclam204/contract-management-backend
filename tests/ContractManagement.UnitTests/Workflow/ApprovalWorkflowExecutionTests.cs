@@ -4,6 +4,7 @@ using ContractManagement.Application.Workflow.Interfaces;
 using ContractManagement.Application.Workflow.Services;
 using ContractManagement.Domain.Workflow.Entities;
 using ContractManagement.Domain.Workflow.Enums;
+using ContractManagement.Application.Notification.Services;
 using ContractManagement.Infrastructure.Persistence;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -48,10 +49,12 @@ public class ApprovalWorkflowExecutionTests
         var publisher = new FakePublisher();
         var evaluator = new WorkflowConditionEvaluator();
         var workflowService = new WorkflowService(context, evaluator);
+        var notificationService = new NotificationService(context);
         var approvalService = new ApprovalService(
             context,
             workflowService,
             publisher,
+            notificationService,
             NullLogger<ApprovalService>.Instance);
 
         return (approvalService, workflowService, publisher, context);
@@ -380,6 +383,101 @@ public class ApprovalWorkflowExecutionTests
         var dbSteps = await context.ApprovalSteps.Where(s => s.ContractId == contractId).ToListAsync();
         Assert.Equal(3, dbSteps.Count);
         Assert.All(dbSteps, s => Assert.Equal(ApprovalDecision.Pending, s.Decision));
+    }
+
+    #endregion
+
+    #region 4. Notification Sync — ApprovalRequest (MVP)
+
+    [Fact]
+    public async Task SubmitForApproval_CreatesApprovalRequest_WithCorrectFields()
+    {
+        // Arrange
+        var (approvalService, _, _, context) = CreateSut();
+        var workflow = await Seed3StepWorkflowAsync(context);
+        var contractId = Guid.NewGuid();
+        var approverId = Guid.NewGuid();
+
+        // Act
+        await approvalService.SubmitForApprovalAsync(new SubmitContractApprovalRequest
+        {
+            ContractId = contractId,
+            ContractValue = 150_000_000m,
+            WorkflowDefinitionId = workflow.Id,
+            ApproverId = approverId
+        });
+
+        // Assert: single ApprovalRequest for the distinct approver, correct fields
+        var notifications = await context.Notifications
+            .Where(n => n.ContractId == contractId && n.Type == ContractManagement.Domain.Notification.Enums.NotificationType.ApprovalRequest)
+            .ToListAsync();
+
+        var notif = Assert.Single(notifications);
+        Assert.Equal(approverId, notif.UserId);
+        Assert.Equal(contractId, notif.ContractId);
+        Assert.Equal(ContractManagement.Domain.Notification.Enums.NotificationType.ApprovalRequest, notif.Type);
+        Assert.False(notif.IsRead);
+        Assert.NotEqual(Guid.Empty, notif.Id);
+    }
+
+    [Fact]
+    public async Task SubmitForApproval_WithSingleDistinctApprover_CreatesOnlyOneApprovalRequest_NotPerStep()
+    {
+        // Arrange — 3-step workflow but single distinct ApproverId => Distinct() => 1 notification
+        var (approvalService, _, _, context) = CreateSut();
+        var workflow = await Seed3StepWorkflowAsync(context);
+        var contractId = Guid.NewGuid();
+        var approverId = Guid.NewGuid();
+
+        // Act
+        await approvalService.SubmitForApprovalAsync(new SubmitContractApprovalRequest
+        {
+            ContractId = contractId,
+            ContractValue = 200_000_000m,
+            WorkflowDefinitionId = workflow.Id,
+            ApproverId = approverId
+        });
+
+        // Assert
+        var count = await context.Notifications.CountAsync(n =>
+            n.ContractId == contractId && n.Type == ContractManagement.Domain.Notification.Enums.NotificationType.ApprovalRequest);
+        Assert.Equal(1, count);
+    }
+
+    [Fact]
+    public async Task Resubmission_AfterRejection_CreatesNewApprovalRequestCycle()
+    {
+        // Arrange
+        var (approvalService, _, _, context) = CreateSut();
+        var workflow = await Seed3StepWorkflowAsync(context);
+        var contractId = Guid.NewGuid();
+        var approverId = Guid.NewGuid();
+
+        await approvalService.SubmitForApprovalAsync(new SubmitContractApprovalRequest
+        {
+            ContractId = contractId, ContractValue = 120_000_000m, WorkflowDefinitionId = workflow.Id, ApproverId = approverId
+        });
+        var afterFirst = await context.Notifications.CountAsync(n =>
+            n.ContractId == contractId && n.Type == ContractManagement.Domain.Notification.Enums.NotificationType.ApprovalRequest);
+        Assert.Equal(1, afterFirst);
+
+        var progress = await context.ApprovalSteps.Where(s => s.ContractId == contractId).ToListAsync();
+        var step1 = progress.First(s => s.StepOrder == 1);
+        await approvalService.ProcessDecisionAsync(new ProcessApprovalDecisionRequest
+        {
+            ApprovalStepId = step1.Id, ApproverId = approverId, Decision = ApprovalDecision.Rejected, Comment = "missing doc"
+        });
+
+        // Act: resubmit after rejection — should create a fresh ApprovalRequest (new cycle)
+        await approvalService.SubmitForApprovalAsync(new SubmitContractApprovalRequest
+        {
+            ContractId = contractId, ContractValue = 130_000_000m, WorkflowDefinitionId = workflow.Id, ApproverId = approverId
+        });
+
+        // Assert: now 2 ApprovalRequests for same contract (one per cycle — steps were cleared, new cycle persisted)
+        var afterSecond = await context.Notifications.CountAsync(n =>
+            n.ContractId == contractId && n.Type == ContractManagement.Domain.Notification.Enums.NotificationType.ApprovalRequest);
+        Assert.Equal(2, afterSecond);
     }
 
     #endregion

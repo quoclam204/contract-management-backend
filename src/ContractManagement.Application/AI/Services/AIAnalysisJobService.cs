@@ -3,7 +3,7 @@ using System.Linq;
 using ContractManagement.Application.AI.DTOs;
 using ContractManagement.Application.AI.Interfaces;
 using ContractManagement.Application.Common.Interfaces;
-using ContractManagement.Application.Contract.Interfaces;
+using ContractManagement.Application.Contracts.Interfaces;
 using ContractManagement.Domain.AI.Entities;
 using Microsoft.EntityFrameworkCore;
 
@@ -28,7 +28,7 @@ namespace ContractManagement.Application.AI.Services;
 /// </remarks>
 public class AIAnalysisJobService : IAIAnalysisJobService
 {
-    private readonly IContractManagementDbContext _contractContext;
+    private readonly IContractDbContext _contractContext;
     private readonly IAiDbContext _aiContext;
     private readonly IStorageProvider _storageProvider;
     private readonly IStorageService? _storageService;
@@ -37,7 +37,7 @@ public class AIAnalysisJobService : IAIAnalysisJobService
     private readonly IAIContractAssistantService _aiAssistant;
 
     public AIAnalysisJobService(
-        IContractManagementDbContext contractContext,
+        IContractDbContext contractContext,
         IAiDbContext aiContext,
         IStorageProvider storageProvider,
         IDocumentTextExtractor documentTextExtractor,

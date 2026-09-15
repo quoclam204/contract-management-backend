@@ -51,7 +51,7 @@ public class AttachmentConfiguration : IEntityTypeConfiguration<Attachment>
             .IsUnique();
 
         // Foreign keys matching database.sql
-        builder.HasOne<ContractManagement.Domain.Contract.Entities.Contract>()
+        builder.HasOne<ContractManagement.Domain.Contracts.Entities.Contract>()
             .WithMany()
             .HasForeignKey(a => a.ContractId)
             .OnDelete(DeleteBehavior.Cascade);

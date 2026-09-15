@@ -3,6 +3,9 @@ using ContractManagement.Application.Workflow.Events;
 using ContractManagement.Application.Workflow.Interfaces;
 using ContractManagement.Domain.Workflow.Entities;
 using ContractManagement.Domain.Workflow.Enums;
+using ContractManagement.Application.Notification.DTOs;
+using ContractManagement.Application.Notification.Interfaces;
+using ContractManagement.Domain.Notification.Enums;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -14,17 +17,20 @@ public class ApprovalService : IApprovalService
     private readonly IWorkflowDbContext _context;
     private readonly IWorkflowService _workflowService;
     private readonly IPublisher _publisher;
+    private readonly INotificationService _notificationService;
     private readonly ILogger<ApprovalService> _logger;
 
     public ApprovalService(
         IWorkflowDbContext context,
         IWorkflowService workflowService,
         IPublisher publisher,
+        INotificationService notificationService,
         ILogger<ApprovalService> logger)
     {
         _context = context;
         _workflowService = workflowService;
         _publisher = publisher;
+        _notificationService = notificationService;
         _logger = logger;
     }
 
@@ -112,6 +118,31 @@ public class ApprovalService : IApprovalService
 
         _logger.LogInformation("Hợp đồng {ContractId} đã được Submit vào luồng duyệt '{WorkflowName}' (v{Version}) với {TotalSteps} bước.",
             request.ContractId, workflow.Name, workflow.Version, newSteps.Count);
+
+        // MVP synchronous ApprovalRequest — distinct pending approvers, after steps persisted, Guid.Empty skipped
+        var distinctApproverIds = newSteps
+            .Where(s => s.ApproverId != Guid.Empty)
+            .Select(s => s.ApproverId)
+            .Distinct()
+            .ToList();
+
+        foreach (var approverId in distinctApproverIds)
+        {
+            try
+            {
+                await _notificationService.CreateAsync(new CreateNotificationRequest
+                {
+                    UserId = approverId,
+                    ContractId = request.ContractId,
+                    Type = NotificationType.ApprovalRequest
+                });
+                _logger.LogInformation("Created ApprovalRequest notification for Contract {ContractId} Approver {ApproverId}", request.ContractId, approverId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to create ApprovalRequest notification for Contract {ContractId} Approver {ApproverId}", request.ContractId, approverId);
+            }
+        }
 
         return await BuildProgressDtoAsync(request.ContractId, workflow, newSteps);
     }

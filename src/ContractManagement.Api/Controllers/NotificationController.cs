@@ -1,6 +1,7 @@
+using ContractManagement.Application.Common.Interfaces;
 using ContractManagement.Application.Notification.DTOs;
 using ContractManagement.Application.Notification.Interfaces;
-using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ContractManagement.Api.Controllers;
@@ -11,13 +12,18 @@ namespace ContractManagement.Api.Controllers;
 [ApiController]
 [Route("api/notifications")]
 [Tags("Notifications")]
+[Authorize]
 public class NotificationController : ControllerBase
 {
     private readonly INotificationService _notificationService;
+    private readonly ICurrentUserService _currentUserService;
 
-    public NotificationController(INotificationService notificationService)
+    public NotificationController(
+        INotificationService notificationService,
+        ICurrentUserService currentUserService)
     {
         _notificationService = notificationService;
+        _currentUserService = currentUserService;
     }
 
     /// <summary>
@@ -33,7 +39,7 @@ public class NotificationController : ControllerBase
     {
         var userId = GetCurrentUserId();
         if (userId == Guid.Empty)
-            return Unauthorized(new { error = "User identity not found. Provide X-User-Id header." });
+            return Unauthorized(new { error = "Not authenticated." });
 
         var notifications = await _notificationService.GetByUserIdAsync(userId, isRead);
         return Ok(notifications);
@@ -50,7 +56,7 @@ public class NotificationController : ControllerBase
     {
         var userId = GetCurrentUserId();
         if (userId == Guid.Empty)
-            return Unauthorized(new { error = "User identity not found. Provide X-User-Id header." });
+            return Unauthorized(new { error = "Not authenticated." });
 
         var count = await _notificationService.GetUnreadCountAsync(userId);
         return Ok(count);
@@ -67,7 +73,7 @@ public class NotificationController : ControllerBase
     {
         var userId = GetCurrentUserId();
         if (userId == Guid.Empty)
-            return Unauthorized(new { error = "User identity not found. Provide X-User-Id header." });
+            return Unauthorized(new { error = "Not authenticated." });
 
         var notifications = await _notificationService.GetUnreadByUserIdAsync(userId);
         return Ok(notifications);
@@ -89,7 +95,7 @@ public class NotificationController : ControllerBase
 
         var userId = GetCurrentUserId();
         if (userId == Guid.Empty)
-            return Unauthorized(new { error = "User identity not found. Provide X-User-Id header." });
+            return Unauthorized(new { error = "Not authenticated." });
 
         var affected = await _notificationService.MarkAsReadAsync(userId, request.NotificationIds);
         return Ok(affected);
@@ -106,31 +112,14 @@ public class NotificationController : ControllerBase
     {
         var userId = GetCurrentUserId();
         if (userId == Guid.Empty)
-            return Unauthorized(new { error = "User identity not found. Provide X-User-Id header." });
+            return Unauthorized(new { error = "Not authenticated." });
 
         var affected = await _notificationService.MarkAllAsReadAsync(userId);
         return Ok(affected);
     }
 
-    /// <summary>
-    /// Lấy UserId từ header X-User-Id (tạm thời cho đến khi có authentication đầy đủ)
-    /// Trong môi trường production, sẽ lấy từ ClaimsPrincipal sau khi có JWT authentication
-    /// </summary>
     private Guid GetCurrentUserId()
     {
-        // Ưu tiên lấy từ ClaimsPrincipal (khi đã có authentication)
-        var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)
-            ?? User.FindFirst("sub")
-            ?? User.FindFirst("userId");
-
-        if (userIdClaim != null && Guid.TryParse(userIdClaim.Value, out var userIdFromClaim))
-            return userIdFromClaim;
-
-        // Fallback: Lấy từ header X-User-Id (cho development/testing)
-        if (Request.Headers.TryGetValue("X-User-Id", out var userIdHeader)
-            && Guid.TryParse(userIdHeader.FirstOrDefault(), out var userIdFromHeader))
-            return userIdFromHeader;
-
-        return Guid.Empty;
+        return _currentUserService.UserId ?? Guid.Empty;
     }
 }

@@ -1,3 +1,5 @@
+using System.IO;
+using System.Linq;
 using ContractManagement.Application.AI.DTOs;
 using ContractManagement.Application.AI.Interfaces;
 using ContractManagement.Application.Common.Interfaces;
@@ -29,6 +31,8 @@ public class AIAnalysisJobService : IAIAnalysisJobService
     private readonly IContractManagementDbContext _contractContext;
     private readonly IAiDbContext _aiContext;
     private readonly IStorageProvider _storageProvider;
+    private readonly IStorageService? _storageService;
+    private readonly IAttachmentDbContext? _attachmentContext;
     private readonly IDocumentTextExtractor _documentTextExtractor;
     private readonly IAIContractAssistantService _aiAssistant;
 
@@ -37,13 +41,17 @@ public class AIAnalysisJobService : IAIAnalysisJobService
         IAiDbContext aiContext,
         IStorageProvider storageProvider,
         IDocumentTextExtractor documentTextExtractor,
-        IAIContractAssistantService aiAssistant)
+        IAIContractAssistantService aiAssistant,
+        IStorageService? storageService = null,
+        IAttachmentDbContext? attachmentContext = null)
     {
         _contractContext = contractContext ?? throw new ArgumentNullException(nameof(contractContext));
         _aiContext = aiContext ?? throw new ArgumentNullException(nameof(aiContext));
         _storageProvider = storageProvider ?? throw new ArgumentNullException(nameof(storageProvider));
         _documentTextExtractor = documentTextExtractor ?? throw new ArgumentNullException(nameof(documentTextExtractor));
         _aiAssistant = aiAssistant ?? throw new ArgumentNullException(nameof(aiAssistant));
+        _storageService = storageService;
+        _attachmentContext = attachmentContext;
     }
 
     public async Task AnalyzeContractAsync(Guid contractId, CancellationToken cancellationToken = default)
@@ -62,19 +70,49 @@ public class AIAnalysisJobService : IAIAnalysisJobService
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        // 2. Validate file reference.
-        if (string.IsNullOrWhiteSpace(contract.FileUrl))
+        // 2. Resolve file reference — prefer Contract.FileUrl (kept in sync on upload),
+        // fallback to latest Attachment for legacy contracts created before the sync.
+        var fileRef = contract.FileUrl;
+        if (string.IsNullOrWhiteSpace(fileRef) && _attachmentContext != null)
+        {
+            fileRef = await _attachmentContext.Attachments
+                .Where(a => a.ContractId == contractId)
+                .OrderByDescending(a => a.Version)
+                .Select(a => a.FileUrl)
+                .FirstOrDefaultAsync(cancellationToken);
+        }
+
+        if (string.IsNullOrWhiteSpace(fileRef))
             throw new InvalidOperationException($"Contract '{contractId}' does not have an associated file.");
 
-        // 3. Download file bytes via existing file reference (Contract.FileUrl).
-        // Storage failures (FileNotFoundException, IOException) propagate to caller.
-        var fileBytes = await _storageProvider.DownloadFileAsync(contract.FileUrl, cancellationToken);
+        // 3. Download file bytes — prefer IStorageService (the writer of attachment files)
+        // to guarantee the same path/layout (storage/contracts/{id}/v{ver}_{name}).
+        // Fallback to IStorageProvider for backwards compat when FileUrl was set via Contract create/update.
+        byte[] fileBytes;
+        if (_storageService != null)
+        {
+            try
+            {
+                await using var stream = await _storageService.GetFileAsync(fileRef, cancellationToken);
+                await using var ms = new MemoryStream();
+                await stream.CopyToAsync(ms, cancellationToken);
+                fileBytes = ms.ToArray();
+            }
+            catch (FileNotFoundException)
+            {
+                fileBytes = await _storageProvider.DownloadFileAsync(fileRef, cancellationToken);
+            }
+        }
+        else
+        {
+            fileBytes = await _storageProvider.DownloadFileAsync(fileRef, cancellationToken);
+        }
 
         cancellationToken.ThrowIfCancellationRequested();
 
         // 4. Extract text — determines format from file name/extension, rejects unsupported/empty.
         // NotSupportedException for unsupported format, InvalidOperationException for empty text propagate.
-        var extractedText = await _documentTextExtractor.ExtractTextAsync(contract.FileUrl, fileBytes, cancellationToken);
+        var extractedText = await _documentTextExtractor.ExtractTextAsync(fileRef, fileBytes, cancellationToken);
 
         cancellationToken.ThrowIfCancellationRequested();
 

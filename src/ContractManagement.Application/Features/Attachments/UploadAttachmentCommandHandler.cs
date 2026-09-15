@@ -31,9 +31,9 @@ namespace ContractManagement.Application.Features.Attachments
 
         public async Task<AttachmentDto> Handle(UploadAttachmentCommand request, CancellationToken cancellationToken)
         {
-            // 1. Kiểm tra tồn tại của hợp đồng
-            var contractExists = await _context.Contracts.AnyAsync(c => c.Id == request.ContractId, cancellationToken);
-            if (!contractExists)
+            // 1. Kiểm tra tồn tại của hợp đồng và load entity để đồng bộ FileUrl cho AI
+            var contract = await _context.Contracts.FirstOrDefaultAsync(c => c.Id == request.ContractId, cancellationToken);
+            if (contract == null)
             {
                 throw new KeyNotFoundException($"Không tìm thấy hợp đồng với Id: {request.ContractId}");
             }
@@ -60,7 +60,7 @@ namespace ContractManagement.Application.Features.Attachments
                 request.FileStream,
                 cancellationToken);
 
-            // 5. Lưu bản ghi Attachment mới vào DB
+            // 5. Lưu bản ghi Attachment mới vào DB và đồng bộ Contract.FileUrl cho AI
             var attachment = new Attachment(
                 Guid.NewGuid(),
                 request.ContractId,
@@ -72,6 +72,12 @@ namespace ContractManagement.Application.Features.Attachments
             );
 
             _context.Attachments.Add(attachment);
+
+            // Đồng bộ FileUrl lên CONTRACTS để AIAnalysisJobService đọc được qua Contract.FileUrl
+            // Trực tiếp gán thuộc tính (không qua Contract.Update để tránh ràng buộc Status == Draft)
+            // vì FileUrl là tham chiếu tài liệu, không phải dữ liệu nghiệp vụ bị khóa bởi trạng thái.
+            contract.FileUrl = fileUrl;
+
             await _context.SaveChangesAsync(cancellationToken);
 
             return new AttachmentDto

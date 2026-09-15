@@ -16,7 +16,7 @@ namespace ContractManagement.Infrastructure.Services
 
         public LocalStorageService(IConfiguration? configuration = null)
         {
-            var configuredPath = configuration?["Storage:BasePath"];
+            var configuredPath = configuration?["Storage:LocalPath"] ?? configuration?["Storage:BasePath"];
             _baseDirectory = !string.IsNullOrWhiteSpace(configuredPath)
                 ? configuredPath
                 : Path.Combine(Directory.GetCurrentDirectory(), "storage");

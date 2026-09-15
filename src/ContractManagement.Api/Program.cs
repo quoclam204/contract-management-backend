@@ -6,6 +6,7 @@ using ContractManagement.Application.AI.Services;
 using ContractManagement.Application.Common.Interfaces;
 using ContractManagement.Application.Contract.Interfaces;
 using ContractManagement.Application.Contract.Services;
+using ContractManagement.Infrastructure.Email;
 using ContractManagement.Application.Dashboard.Interfaces;
 using ContractManagement.Application.Dashboard.Services;
 using ContractManagement.Application.Identity.Interfaces;
@@ -15,11 +16,14 @@ using ContractManagement.Application.Notification.Services;
 using ContractManagement.Application.Workflow.Interfaces;
 using ContractManagement.Application.Workflow.Services;
 using ContractManagement.Domain.Identity.Enums;
+using ContractManagement.Infrastructure.AI;
 using ContractManagement.Infrastructure;
 using ContractManagement.Infrastructure.Messaging;
 using ContractManagement.Infrastructure.Persistence;
 using ContractManagement.Infrastructure.Security;
 using ContractManagement.Infrastructure.Storage;
+using Hangfire;
+using Hangfire.SqlServer;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -57,6 +61,8 @@ builder.Services.AddDbContext<ContractManagementDbContext>(options =>
 
 // DbContext Interfaces
 builder.Services.AddScoped<IWorkflowDbContext>(sp => sp.GetRequiredService<ContractManagementDbContext>());
+builder.Services.AddScoped<IAiDbContext>(sp => sp.GetRequiredService<ContractManagementDbContext>());
+// Notification Module Services
 builder.Services.AddScoped<IContractManagementDbContext>(sp => sp.GetRequiredService<ContractManagementDbContext>());
 builder.Services.AddScoped<ContractManagement.Application.Contracts.Interfaces.IContractDbContext>(sp => sp.GetRequiredService<ContractManagementDbContext>());
 builder.Services.AddScoped<IIdentityDbContext>(sp => sp.GetRequiredService<ContractManagementDbContext>());
@@ -76,6 +82,7 @@ builder.Services.AddInfrastructureServices();
 // Storage Services
 var storagePath = builder.Configuration["Storage:LocalPath"] ?? "./storage";
 builder.Services.AddScoped<IStorageProvider>(_ => new LocalStorageProvider(storagePath));
+builder.Services.AddScoped<IDocumentTextExtractor, DocumentTextExtractor>();
 
 // Application Services (MediatR, FluentValidation, ValidationBehavior)
 builder.Services.AddApplicationServices();
@@ -101,8 +108,34 @@ builder.Services.AddScoped<ContractManagement.Application.Contracts.Interfaces.I
 builder.Services.AddScoped<ContractManagement.Application.Contracts.Interfaces.IContractTypeService, ContractManagement.Application.Contracts.Services.ContractTypeService>();
 builder.Services.AddScoped<ContractManagement.Application.Contracts.Interfaces.IContractTemplateVersionService, ContractManagement.Application.Contracts.Services.ContractTemplateVersionService>();
 
+// Email (FR-08) — minimal SMTP abstraction
+builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
+
+// Contract Expiry (FR-08)
+builder.Services.AddScoped<ContractManagement.Application.Contracts.Interfaces.IContractExpiryJobService, ContractManagement.Application.Contracts.Services.ContractExpiryJobService>();
+
 // AI Module Services
 builder.Services.AddScoped<IAIContractAssistantService, MockAIContractAssistantService>();
+builder.Services.AddScoped<IAIAnalysisJobService, AIAnalysisJobService>();
+
+// Hangfire — AI analysis background jobs (SqlServer storage reusing DefaultConnection)
+// Application layer remains free of Hangfire types; Hangfire is API/Infrastructure concern only.
+if (!string.IsNullOrEmpty(connectionString))
+{
+    builder.Services.AddHangfire(config => config
+        .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+        .UseSimpleAssemblyNameTypeSerializer()
+        .UseRecommendedSerializerSettings()
+        .UseSqlServerStorage(connectionString, new SqlServerStorageOptions
+        {
+            PrepareSchemaIfNecessary = true
+        }));
+    builder.Services.AddHangfireServer();
+
+    // FR-08: retry on DB/email transient failures, prevent overlapping executions
+    GlobalJobFilters.Filters.Add(new AutomaticRetryAttribute { Attempts = 3, LogEvents = true, OnAttemptsExceeded = AttemptsExceededAction.Fail });
+    GlobalJobFilters.Filters.Add(new DisableConcurrentExecutionAttribute(600));
+}
 
 // Workflow Module Services (Reference Implementation)
 builder.Services.AddScoped<IWorkflowConditionEvaluator, WorkflowConditionEvaluator>();
@@ -148,6 +181,22 @@ builder.Services.AddAuthorization(options =>
 });
 
 var app = builder.Build();
+
+// Hangfire recurring job — FR-08 contract expiry (daily)
+try
+{
+    using var scope = app.Services.CreateScope();
+    var recurring = scope.ServiceProvider.GetService<IRecurringJobManager>();
+    recurring?.AddOrUpdate<ContractManagement.Application.Contracts.Interfaces.IContractExpiryJobService>(
+        "contract-expiry-notification-job",
+        service => service.ProcessContractExpirationsAsync(CancellationToken.None),
+        Cron.Daily);
+}
+catch (Exception ex)
+{
+    var logger = app.Services.GetService<ILoggerFactory>()?.CreateLogger("Hangfire");
+    logger?.LogWarning(ex, "Failed to schedule contract-expiry-notification-job");
+}
 
 if (app.Environment.IsDevelopment())
 {

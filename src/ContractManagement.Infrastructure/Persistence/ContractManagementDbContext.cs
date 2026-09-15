@@ -1,3 +1,4 @@
+using ContractManagement.Application.AI.Interfaces;
 using ContractManagement.Application.Common.Interfaces;
 using ContractManagement.Application.Contract.Interfaces;
 using ContractManagement.Application.Contracts.Interfaces;
@@ -5,6 +6,7 @@ using ContractManagement.Application.Identity.Interfaces;
 using ContractManagement.Application.Notification.Interfaces;
 using ContractManagement.Application.Workflow.Interfaces;
 using ContractManagement.Domain;
+using ContractManagement.Domain.AI.Entities;
 using ContractManagement.Domain.Contracts.Entities;
 using ContractManagement.Domain.Identity.Entities;
 using ContractManagement.Domain.Workflow.Entities;
@@ -21,6 +23,7 @@ public class ContractManagementDbContext : DbContext,
     IIdentityDbContext,
     IPartnerDbContext,
     INotificationDbContext,
+    IAiDbContext,
     IAttachmentDbContext
 {
     public ContractManagementDbContext(DbContextOptions<ContractManagementDbContext> options)
@@ -36,6 +39,7 @@ public class ContractManagementDbContext : DbContext,
     public DbSet<ContractType> ContractTypes => Set<ContractType>();
     public DbSet<ContractTemplateVersion> ContractTemplateVersions => Set<ContractTemplateVersion>();
     public DbSet<Contract> Contracts => Set<Contract>();
+    public DbSet<AiAnalysisResult> AiAnalysisResults => Set<AiAnalysisResult>();
 
     DbSet<LegacyContract.ContractType> IContractManagementDbContext.ContractTypes => Set<LegacyContract.ContractType>();
     DbSet<LegacyContract.ContractTemplateVersion> IContractManagementDbContext.ContractTemplateVersions => Set<LegacyContract.ContractTemplateVersion>();

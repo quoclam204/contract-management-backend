@@ -2,14 +2,20 @@ using ContractManagement.Application.AI.DTOs;
 using ContractManagement.Application.AI.Interfaces;
 using ContractManagement.Application.AI.Services;
 using ContractManagement.Application.Common.Interfaces;
-using ContractManagement.Application.Contract.Interfaces;
+using ContractManagement.Application.Contracts.Interfaces;
+using ContractManagement.Domain.Contracts.Entities;
+using ContractManagement.Domain.Contracts.Enums;
 using ContractManagement.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Moq;
-using DomainContract = ContractManagement.Domain.Contract.Entities.Contract;
+using Xunit;
+using DomainContract = ContractManagement.Domain.Contracts.Entities.Contract;
 
 namespace ContractManagement.UnitTests.AI;
 
+/// <summary>
+/// Tests for AIAnalysisJobService with CURRENT Contract entity (dbo.CONTRACTS mapping).
+/// </summary>
 public class AIAnalysisJobServiceTests : IDisposable
 {
     private readonly ContractManagementDbContext _context;
@@ -49,7 +55,7 @@ public class AIAnalysisJobServiceTests : IDisposable
             Value = 1000m,
             EffectiveDate = DateTime.UtcNow,
             ExpiryDate = DateTime.UtcNow.AddYears(1),
-            Status = 4,
+            Status = ContractStatus.Active,
             FileUrl = fileUrl,
             CreatedAt = DateTime.UtcNow,
             RowVersion = new byte[] { 1, 2, 3, 4 }
@@ -97,7 +103,7 @@ public class AIAnalysisJobServiceTests : IDisposable
     public async Task AnalyzeContractAsync_WithMissingFileUrl_ThrowsInvalidOperationException()
     {
         var id = Guid.NewGuid();
-        ((IContractManagementDbContext)_context).Contracts.Add(CreateContract(id, null));
+        ((IContractDbContext)_context).Contracts.Add(CreateContract(id, null));
         await _context.SaveChangesAsync();
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _sut.AnalyzeContractAsync(id));
@@ -110,7 +116,7 @@ public class AIAnalysisJobServiceTests : IDisposable
         var id = Guid.NewGuid();
         const string fileUrl = "contract.pdf";
         var contract = CreateContract(id, fileUrl);
-        ((IContractManagementDbContext)_context).Contracts.Add(contract);
+        ((IContractDbContext)_context).Contracts.Add(contract);
         await _context.SaveChangesAsync();
 
         var fileBytes = new byte[] { 1, 2, 3 };
@@ -127,7 +133,7 @@ public class AIAnalysisJobServiceTests : IDisposable
     {
         var id = Guid.NewGuid();
         const string fileUrl = "contract.pdf";
-        ((IContractManagementDbContext)_context).Contracts.Add(CreateContract(id, fileUrl));
+        ((IContractDbContext)_context).Contracts.Add(CreateContract(id, fileUrl));
         await _context.SaveChangesAsync();
 
         var fileBytes = new byte[] { 9, 8, 7 };
@@ -144,7 +150,7 @@ public class AIAnalysisJobServiceTests : IDisposable
     {
         var id = Guid.NewGuid();
         const string fileUrl = "contract.docx";
-        ((IContractManagementDbContext)_context).Contracts.Add(CreateContract(id, fileUrl));
+        ((IContractDbContext)_context).Contracts.Add(CreateContract(id, fileUrl));
         await _context.SaveChangesAsync();
 
         var fileBytes = new byte[] { 1, 2, 3 };
@@ -166,7 +172,7 @@ public class AIAnalysisJobServiceTests : IDisposable
     {
         var id = Guid.NewGuid();
         const string fileUrl = "file.pdf";
-        ((IContractManagementDbContext)_context).Contracts.Add(CreateContract(id, fileUrl));
+        ((IContractDbContext)_context).Contracts.Add(CreateContract(id, fileUrl));
         await _context.SaveChangesAsync();
 
         SetupSuccessMocks(fileUrl, new byte[] { 1 }, "text", null, null, "summary");
@@ -183,7 +189,7 @@ public class AIAnalysisJobServiceTests : IDisposable
     {
         var id = Guid.NewGuid();
         const string fileUrl = "file.pdf";
-        ((IContractManagementDbContext)_context).Contracts.Add(CreateContract(id, fileUrl));
+        ((IContractDbContext)_context).Contracts.Add(CreateContract(id, fileUrl));
         await _context.SaveChangesAsync();
 
         var expiry = new DateTime(2028, 6, 15, 0, 0, 0, DateTimeKind.Utc);
@@ -202,7 +208,7 @@ public class AIAnalysisJobServiceTests : IDisposable
     {
         var id = Guid.NewGuid();
         const string fileUrl = "file.pdf";
-        ((IContractManagementDbContext)_context).Contracts.Add(CreateContract(id, fileUrl));
+        ((IContractDbContext)_context).Contracts.Add(CreateContract(id, fileUrl));
         await _context.SaveChangesAsync();
         var countBefore = await _context.AiAnalysisResults.CountAsync();
 
@@ -219,7 +225,7 @@ public class AIAnalysisJobServiceTests : IDisposable
     {
         var id = Guid.NewGuid();
         const string fileUrl = "contract.txt";
-        ((IContractManagementDbContext)_context).Contracts.Add(CreateContract(id, fileUrl));
+        ((IContractDbContext)_context).Contracts.Add(CreateContract(id, fileUrl));
         await _context.SaveChangesAsync();
 
         var fileBytes = new byte[] { 1, 2, 3 };
@@ -240,7 +246,7 @@ public class AIAnalysisJobServiceTests : IDisposable
     {
         var id = Guid.NewGuid();
         const string fileUrl = "empty.pdf";
-        ((IContractManagementDbContext)_context).Contracts.Add(CreateContract(id, fileUrl));
+        ((IContractDbContext)_context).Contracts.Add(CreateContract(id, fileUrl));
         await _context.SaveChangesAsync();
 
         var fileBytes = new byte[] { 1, 2, 3 };
@@ -259,7 +265,7 @@ public class AIAnalysisJobServiceTests : IDisposable
     {
         var id = Guid.NewGuid();
         const string fileUrl = "missing.pdf";
-        ((IContractManagementDbContext)_context).Contracts.Add(CreateContract(id, fileUrl));
+        ((IContractDbContext)_context).Contracts.Add(CreateContract(id, fileUrl));
         await _context.SaveChangesAsync();
 
         _storageMock.Setup(s => s.DownloadFileAsync(fileUrl, It.IsAny<CancellationToken>()))
@@ -276,7 +282,7 @@ public class AIAnalysisJobServiceTests : IDisposable
     {
         var id = Guid.NewGuid();
         const string fileUrl = "file.pdf";
-        ((IContractManagementDbContext)_context).Contracts.Add(CreateContract(id, fileUrl));
+        ((IContractDbContext)_context).Contracts.Add(CreateContract(id, fileUrl));
         await _context.SaveChangesAsync();
 
         var fileBytes = new byte[] { 1 };
@@ -296,7 +302,7 @@ public class AIAnalysisJobServiceTests : IDisposable
     {
         var id = Guid.NewGuid();
         const string fileUrl = "file.pdf";
-        ((IContractManagementDbContext)_context).Contracts.Add(CreateContract(id, fileUrl));
+        ((IContractDbContext)_context).Contracts.Add(CreateContract(id, fileUrl));
         await _context.SaveChangesAsync();
 
         var fileBytes = new byte[] { 1 };
@@ -317,7 +323,7 @@ public class AIAnalysisJobServiceTests : IDisposable
     public async Task AnalyzeContractAsync_WhenCancelled_ThrowsOperationCanceledException()
     {
         var id = Guid.NewGuid();
-        ((IContractManagementDbContext)_context).Contracts.Add(CreateContract(id, "file.pdf"));
+        ((IContractDbContext)_context).Contracts.Add(CreateContract(id, "file.pdf"));
         await _context.SaveChangesAsync();
 
         using var cts = new CancellationTokenSource();

@@ -4,22 +4,25 @@ using ContractManagement.Application.AI.DTOs;
 using ContractManagement.Application.AI.Interfaces;
 using ContractManagement.Application.AI.Services;
 using ContractManagement.Application.Common.Interfaces;
-using ContractManagement.Application.Contract.Interfaces;
+using ContractManagement.Application.Contracts.Interfaces;
 using ContractManagement.Application.Features.Attachments;
 using ContractManagement.Domain;
+using ContractManagement.Domain.Contracts.Entities;
+using ContractManagement.Domain.Contracts.Enums;
 using ContractManagement.Infrastructure.Persistence;
 using ContractManagement.Infrastructure.Services;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Moq;
 using Xunit;
-using DomainContract = ContractManagement.Domain.Contract.Entities.Contract;
+using DomainContract = ContractManagement.Domain.Contracts.Entities.Contract;
 
 namespace ContractManagement.UnitTests.AI;
 
 /// <summary>
 /// Focused integration tests for AI attachment → analysis path.
 /// Verifies the blocker fix: uploaded attachment becomes the file reference consumed by AI.
+/// Uses CURRENT Contract entity (dbo.CONTRACTS), not LEGACY_CONTRACTS.
 /// </summary>
 public class AIAttachmentIntegrationTests : IDisposable
 {
@@ -55,7 +58,7 @@ public class AIAttachmentIntegrationTests : IDisposable
             Value = 1000m,
             EffectiveDate = DateTime.UtcNow,
             ExpiryDate = DateTime.UtcNow.AddYears(1),
-            Status = 0,
+            Status = ContractStatus.Draft,
             FileUrl = fileUrl,
             CreatedAt = DateTime.UtcNow,
             RowVersion = new byte[] { 0, 0, 0, 1 }
@@ -76,7 +79,7 @@ public class AIAttachmentIntegrationTests : IDisposable
             .ReturnsAsync(new ContractSummaryDto { ContractId = Guid.Empty, Summary = "summary", KeyPoints = new List<string>() });
     }
 
-    // 1. Upload syncs Contract.FileUrl — first version
+    // 1. Upload syncs Contract.FileUrl — first version (verifies CURRENT CONTRACTS mapping)
     [Fact]
     public async Task UploadAttachment_ShouldSyncContractFileUrl_OnFirstVersion()
     {
@@ -104,6 +107,9 @@ public class AIAttachmentIntegrationTests : IDisposable
         result.FileUrl.Should().Be(expectedUrl);
         var reloaded = await ((IAttachmentDbContext)_context).Contracts.FirstAsync(c => c.Id == contractId);
         reloaded.FileUrl.Should().Be(expectedUrl);
+        // Also verify via IContractDbContext / direct DbSet (dbo.CONTRACTS)
+        var viaCurrent = await _context.Contracts.FirstAsync(c => c.Id == contractId);
+        viaCurrent.FileUrl.Should().Be(expectedUrl);
     }
 
     // 2. Upload syncs Contract.FileUrl — incremented version resolves to latest
@@ -143,7 +149,7 @@ public class AIAttachmentIntegrationTests : IDisposable
     public async Task AnalyzeContractAsync_WhenContractFileUrlNull_ShouldFallbackToLatestAttachmentViaStorageService()
     {
         var contractId = Guid.NewGuid();
-        ((IContractManagementDbContext)_context).Contracts.Add(CreateContract(contractId, null));
+        _context.Contracts.Add(CreateContract(contractId, null));
         var olderUrl = $"storage/contracts/{contractId}/v1_old.pdf";
         var latestUrl = $"storage/contracts/{contractId}/v2_latest.pdf";
         _context.Attachments.Add(new Attachment(Guid.NewGuid(), contractId, "old.pdf", 1, olderUrl, Guid.NewGuid(), DateTime.UtcNow.AddHours(-2)));
@@ -175,7 +181,7 @@ public class AIAttachmentIntegrationTests : IDisposable
     {
         var contractId = Guid.NewGuid();
         var fileUrl = $"storage/contracts/{contractId}/v1_doc.pdf";
-        ((IContractManagementDbContext)_context).Contracts.Add(CreateContract(contractId, fileUrl));
+        _context.Contracts.Add(CreateContract(contractId, fileUrl));
         await _context.SaveChangesAsync();
 
         var fileBytes = new byte[] { 9, 8, 7 };
@@ -201,7 +207,7 @@ public class AIAttachmentIntegrationTests : IDisposable
     {
         var contractId = Guid.NewGuid();
         var fileUrl = "contract.pdf";
-        ((IContractManagementDbContext)_context).Contracts.Add(CreateContract(contractId, fileUrl));
+        _context.Contracts.Add(CreateContract(contractId, fileUrl));
         await _context.SaveChangesAsync();
 
         var fileBytes = new byte[] { 5, 6, 7 };
@@ -241,9 +247,11 @@ public class AIAttachmentIntegrationTests : IDisposable
         using var uploadStream = new MemoryStream(Encoding.UTF8.GetBytes("original pdf bytes"));
         await handler.Handle(new UploadAttachmentCommand { ContractId = contractId, FileName = "contract.pdf", FileStream = uploadStream }, CancellationToken.None);
 
-        // Verify sync
-        var afterUpload = await ((IContractManagementDbContext)_context).Contracts.FirstAsync(c => c.Id == contractId);
+        // Verify sync via both contexts (dbo.CONTRACTS)
+        var afterUpload = await _context.Contracts.FirstAsync(c => c.Id == contractId);
         afterUpload.FileUrl.Should().Be(fileUrl);
+        var afterUploadViaAttachment = await ((IAttachmentDbContext)_context).Contracts.FirstAsync(c => c.Id == contractId);
+        afterUploadViaAttachment.FileUrl.Should().Be(fileUrl);
 
         // Now analyze — wire a real temp storage service backed by filesystem for this contract's file
         var tempDir = Path.Combine(Path.GetTempPath(), "ai_attach_int_" + Guid.NewGuid().ToString("N"));

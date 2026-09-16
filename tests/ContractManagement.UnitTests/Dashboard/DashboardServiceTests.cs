@@ -1,10 +1,12 @@
-using ContractManagement.Application.Contract.Interfaces;
+using ContractManagement.Application.Contracts.Interfaces;
 using ContractManagement.Application.Dashboard.DTOs;
 using ContractManagement.Application.Dashboard.Services;
 using ContractManagement.Application.Common.Interfaces;
 using ContractManagement.Application.Identity.Interfaces;
-using DomainContract = ContractManagement.Domain.Contract.Entities;
-using ContractManagement.Domain.Contract.Enums;
+using CurrentContract = ContractManagement.Domain.Contracts.Entities.Contract;
+using CurrentContractType = ContractManagement.Domain.Contracts.Entities.ContractType;
+using CurrentTemplateVersion = ContractManagement.Domain.Contracts.Entities.ContractTemplateVersion;
+using ContractManagement.Domain.Contracts.Enums;
 using ContractManagement.Domain.Identity.Entities;
 using ContractManagement.Domain.Identity.Enums;
 using ContractManagement.Domain;
@@ -34,14 +36,17 @@ public class DashboardServiceTests : IDisposable
         _context.Dispose();
     }
 
-    private static DomainContract.Contract CreateContract(
+    private static CurrentContract CreateContract(
         Guid ownerId,
         Guid partnerId,
-        ContractStatusEnum status,
+        ContractStatus status,
         decimal value,
-        DateTime createdAt)
+        DateTime createdAt,
+        DateTime? expiryDate = null)
     {
-        return new DomainContract.Contract
+        var effective = createdAt;
+        var expiry = expiryDate ?? createdAt.AddYears(1);
+        return new CurrentContract
         {
             Id = Guid.NewGuid(),
             ContractNumber = $"CTR-{Guid.NewGuid().ToString()[..8]}",
@@ -50,9 +55,9 @@ public class DashboardServiceTests : IDisposable
             ContractTypeId = Guid.NewGuid(),
             TemplateVersionUsedId = Guid.NewGuid(),
             PartnerId = partnerId,
-            EffectiveDate = createdAt,
-            ExpiryDate = createdAt.AddYears(1),
-            Status = (byte)status,
+            EffectiveDate = effective,
+            ExpiryDate = expiry,
+            Status = status,
             Value = value,
             CreatedAt = createdAt,
             RowVersion = new byte[] { 1, 2, 3, 4 }
@@ -63,17 +68,18 @@ public class DashboardServiceTests : IDisposable
     public async Task GetSummaryAsync_ReturnsAccurateKPIs()
     {
         // Arrange
+        var now = DateTime.UtcNow;
         var ownerId = Guid.NewGuid();
         var partnerId = Guid.NewGuid();
 
         _context.Contracts.AddRange(
-            CreateContract(ownerId, partnerId, ContractStatusEnum.Active, 1000m, DateTime.UtcNow),
-            CreateContract(ownerId, partnerId, ContractStatusEnum.Active, 2000m, DateTime.UtcNow),
-            CreateContract(ownerId, partnerId, ContractStatusEnum.Expiring, 500m, DateTime.UtcNow),
-            CreateContract(ownerId, partnerId, ContractStatusEnum.PendingApproval, 1500m, DateTime.UtcNow),
-            CreateContract(ownerId, partnerId, ContractStatusEnum.Draft, 300m, DateTime.UtcNow),
-            CreateContract(ownerId, partnerId, ContractStatusEnum.Signed, 700m, DateTime.UtcNow),
-            CreateContract(ownerId, partnerId, ContractStatusEnum.Terminated, 400m, DateTime.UtcNow)
+            CreateContract(ownerId, partnerId, ContractStatus.Active, 1000m, now, now.AddDays(10)), // expiringSoon
+            CreateContract(ownerId, partnerId, ContractStatus.Active, 2000m, now, now.AddDays(60)), // active but not soon
+            CreateContract(ownerId, partnerId, ContractStatus.Expiring, 500m, now, now.AddDays(5)), // status Expiring -> not counted
+            CreateContract(ownerId, partnerId, ContractStatus.PendingApproval, 1500m, now),
+            CreateContract(ownerId, partnerId, ContractStatus.Draft, 300m, now),
+            CreateContract(ownerId, partnerId, ContractStatus.Signed, 700m, now),
+            CreateContract(ownerId, partnerId, ContractStatus.Terminated, 400m, now)
         );
         await _context.SaveChangesAsync();
 
@@ -86,7 +92,7 @@ public class DashboardServiceTests : IDisposable
         Assert.Equal(2, result.ActiveContractsCount);
         Assert.Equal(3000m, result.ActiveContractsValue);
         Assert.Equal(1, result.ExpiringContractsCount);
-        Assert.Equal(500m, result.ExpiringContractsValue);
+        Assert.Equal(1000m, result.ExpiringContractsValue);
         Assert.Equal(1, result.PendingApprovalCount);
         Assert.Equal(1500m, result.PendingApprovalValue);
         Assert.Equal(1, result.DraftCount);
@@ -112,6 +118,85 @@ public class DashboardServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task GetSummaryAsync_ExpiringSoon_OnlyActiveWithin30Days()
+    {
+        var now = DateTime.UtcNow;
+        var ownerId = Guid.NewGuid();
+        var partnerId = Guid.NewGuid();
+
+        _context.Contracts.AddRange(
+            CreateContract(ownerId, partnerId, ContractStatus.Active, 1000m, now, now.AddDays(5)),
+            CreateContract(ownerId, partnerId, ContractStatus.Active, 2000m, now, now.AddDays(30)),
+            CreateContract(ownerId, partnerId, ContractStatus.Active, 3000m, now, now.AddDays(31)),
+            CreateContract(ownerId, partnerId, ContractStatus.Active, 4000m, now, now.AddDays(-1)), // expired
+            CreateContract(ownerId, partnerId, ContractStatus.Draft, 500m, now, now.AddDays(5)),
+            CreateContract(ownerId, partnerId, ContractStatus.Expiring, 600m, now, now.AddDays(5))
+        );
+        await _context.SaveChangesAsync();
+
+        var result = await _service.GetSummaryAsync();
+
+        Assert.Equal(2, result.ExpiringContractsCount);
+        Assert.Equal(3000m, result.ExpiringContractsValue); // 1000 + 2000
+    }
+
+    [Fact]
+    public async Task GetSummaryAsync_ExpiringSoon_ExpiredNotCounted()
+    {
+        var now = DateTime.UtcNow;
+        var ownerId = Guid.NewGuid();
+        var partnerId = Guid.NewGuid();
+
+        _context.Contracts.Add(CreateContract(ownerId, partnerId, ContractStatus.Active, 1000m, now, now.AddDays(-1)));
+        await _context.SaveChangesAsync();
+
+        var result = await _service.GetSummaryAsync();
+
+        Assert.Equal(0, result.ExpiringContractsCount);
+        Assert.Equal(0m, result.ExpiringContractsValue);
+    }
+
+    [Fact]
+    public async Task GetSummaryAsync_ExpiringSoon_Beyond30DaysNotCounted()
+    {
+        var now = DateTime.UtcNow;
+        var ownerId = Guid.NewGuid();
+        var partnerId = Guid.NewGuid();
+
+        _context.Contracts.Add(CreateContract(ownerId, partnerId, ContractStatus.Active, 1000m, now, now.AddDays(31)));
+        await _context.SaveChangesAsync();
+
+        var result = await _service.GetSummaryAsync();
+
+        Assert.Equal(0, result.ExpiringContractsCount);
+        Assert.Equal(0m, result.ExpiringContractsValue);
+    }
+
+    [Fact]
+    public async Task GetSummaryAsync_ExpiringSoon_NonActiveNotCounted()
+    {
+        var now = DateTime.UtcNow;
+        var ownerId = Guid.NewGuid();
+        var partnerId = Guid.NewGuid();
+
+        _context.Contracts.AddRange(
+            CreateContract(ownerId, partnerId, ContractStatus.Draft, 1000m, now, now.AddDays(5)),
+            CreateContract(ownerId, partnerId, ContractStatus.PendingApproval, 1000m, now, now.AddDays(5)),
+            CreateContract(ownerId, partnerId, ContractStatus.Approved, 1000m, now, now.AddDays(5)),
+            CreateContract(ownerId, partnerId, ContractStatus.Signed, 1000m, now, now.AddDays(5)),
+            CreateContract(ownerId, partnerId, ContractStatus.Expiring, 1000m, now, now.AddDays(5)),
+            CreateContract(ownerId, partnerId, ContractStatus.Renewed, 1000m, now, now.AddDays(5)),
+            CreateContract(ownerId, partnerId, ContractStatus.Terminated, 1000m, now, now.AddDays(5))
+        );
+        await _context.SaveChangesAsync();
+
+        var result = await _service.GetSummaryAsync();
+
+        Assert.Equal(0, result.ExpiringContractsCount);
+        Assert.Equal(0m, result.ExpiringContractsValue);
+    }
+
+    [Fact]
     public async Task GetByStatusAsync_ReturnsAll8StatusesWithCorrectMetrics()
     {
         // Arrange
@@ -119,8 +204,8 @@ public class DashboardServiceTests : IDisposable
         var partnerId = Guid.NewGuid();
 
         _context.Contracts.AddRange(
-            CreateContract(ownerId, partnerId, ContractStatusEnum.Active, 1000m, DateTime.UtcNow),
-            CreateContract(ownerId, partnerId, ContractStatusEnum.Approved, 2500m, DateTime.UtcNow)
+            CreateContract(ownerId, partnerId, ContractStatus.Active, 1000m, DateTime.UtcNow),
+            CreateContract(ownerId, partnerId, ContractStatus.Approved, 2500m, DateTime.UtcNow)
         );
         await _context.SaveChangesAsync();
 
@@ -130,17 +215,17 @@ public class DashboardServiceTests : IDisposable
         // Assert
         Assert.Equal(8, result.Count);
 
-        var activeStatus = result.Single(s => s.Status == (byte)ContractStatusEnum.Active);
+        var activeStatus = result.Single(s => s.Status == (byte)ContractStatus.Active);
         Assert.Equal("Active", activeStatus.StatusName);
         Assert.Equal(1, activeStatus.Count);
         Assert.Equal(1000m, activeStatus.TotalValue);
 
-        var approvedStatus = result.Single(s => s.Status == (byte)ContractStatusEnum.Approved);
+        var approvedStatus = result.Single(s => s.Status == (byte)ContractStatus.Approved);
         Assert.Equal("Approved", approvedStatus.StatusName);
         Assert.Equal(1, approvedStatus.Count);
         Assert.Equal(2500m, approvedStatus.TotalValue);
 
-        var draftStatus = result.Single(s => s.Status == (byte)ContractStatusEnum.Draft);
+        var draftStatus = result.Single(s => s.Status == (byte)ContractStatus.Draft);
         Assert.Equal(0, draftStatus.Count);
         Assert.Equal(0m, draftStatus.TotalValue);
     }
@@ -160,10 +245,10 @@ public class DashboardServiceTests : IDisposable
 
         var partnerId = Guid.NewGuid();
         _context.Contracts.AddRange(
-            CreateContract(userA.Id, partnerId, ContractStatusEnum.Active, 5000m, DateTime.UtcNow),
-            CreateContract(userA.Id, partnerId, ContractStatusEnum.Signed, 3000m, DateTime.UtcNow),
-            CreateContract(userB.Id, partnerId, ContractStatusEnum.Active, 4000m, DateTime.UtcNow),
-            CreateContract(userUnassigned.Id, partnerId, ContractStatusEnum.Active, 1000m, DateTime.UtcNow)
+            CreateContract(userA.Id, partnerId, ContractStatus.Active, 5000m, DateTime.UtcNow),
+            CreateContract(userA.Id, partnerId, ContractStatus.Signed, 3000m, DateTime.UtcNow),
+            CreateContract(userB.Id, partnerId, ContractStatus.Active, 4000m, DateTime.UtcNow),
+            CreateContract(userUnassigned.Id, partnerId, ContractStatus.Active, 1000m, DateTime.UtcNow)
         );
         await _context.SaveChangesAsync();
 
@@ -200,9 +285,9 @@ public class DashboardServiceTests : IDisposable
 
         var ownerId = Guid.NewGuid();
         _context.Contracts.AddRange(
-            CreateContract(ownerId, partnerA.Id, ContractStatusEnum.Active, 10000m, DateTime.UtcNow),
-            CreateContract(ownerId, partnerB.Id, ContractStatusEnum.Active, 5000m, DateTime.UtcNow),
-            CreateContract(ownerId, partnerC.Id, ContractStatusEnum.Active, 1000m, DateTime.UtcNow)
+            CreateContract(ownerId, partnerA.Id, ContractStatus.Active, 10000m, DateTime.UtcNow),
+            CreateContract(ownerId, partnerB.Id, ContractStatus.Active, 5000m, DateTime.UtcNow),
+            CreateContract(ownerId, partnerC.Id, ContractStatus.Active, 1000m, DateTime.UtcNow)
         );
         await _context.SaveChangesAsync();
 
@@ -231,9 +316,9 @@ public class DashboardServiceTests : IDisposable
         var dateFeb = new DateTime(2026, 2, 20, 0, 0, 0, DateTimeKind.Utc);
 
         _context.Contracts.AddRange(
-            CreateContract(ownerId, partnerId, ContractStatusEnum.Active, 1000m, dateJan),
-            CreateContract(ownerId, partnerId, ContractStatusEnum.Signed, 2000m, dateJan),
-            CreateContract(ownerId, partnerId, ContractStatusEnum.Active, 3000m, dateFeb)
+            CreateContract(ownerId, partnerId, ContractStatus.Active, 1000m, dateJan),
+            CreateContract(ownerId, partnerId, ContractStatus.Signed, 2000m, dateJan),
+            CreateContract(ownerId, partnerId, ContractStatus.Active, 3000m, dateFeb)
         );
         await _context.SaveChangesAsync();
 
@@ -261,9 +346,9 @@ public class DashboardServiceTests : IDisposable
         var partnerId = Guid.NewGuid();
 
         _context.Contracts.AddRange(
-            CreateContract(userA, partnerId, ContractStatusEnum.Active, 1000m, DateTime.UtcNow),
-            CreateContract(userA, partnerId, ContractStatusEnum.Active, 2000m, DateTime.UtcNow),
-            CreateContract(userB, partnerId, ContractStatusEnum.Active, 5000m, DateTime.UtcNow)
+            CreateContract(userA, partnerId, ContractStatus.Active, 1000m, DateTime.UtcNow),
+            CreateContract(userA, partnerId, ContractStatus.Active, 2000m, DateTime.UtcNow),
+            CreateContract(userB, partnerId, ContractStatus.Active, 5000m, DateTime.UtcNow)
         );
         await _context.SaveChangesAsync();
 
@@ -277,13 +362,13 @@ public class DashboardServiceTests : IDisposable
     }
 }
 
-public class TestDashboardDbContext : DbContext, IContractManagementDbContext, IIdentityDbContext, IPartnerDbContext
+public class TestDashboardDbContext : DbContext, IContractDbContext, IIdentityDbContext, IPartnerDbContext
 {
     public TestDashboardDbContext(DbContextOptions<TestDashboardDbContext> options) : base(options) { }
 
-    public DbSet<DomainContract.ContractType> ContractTypes { get; set; } = default!;
-    public DbSet<DomainContract.ContractTemplateVersion> ContractTemplateVersions { get; set; } = default!;
-    public DbSet<DomainContract.Contract> Contracts { get; set; } = default!;
+    public DbSet<CurrentContract> Contracts { get; set; } = default!;
+    public DbSet<CurrentContractType> ContractTypes { get; set; } = default!;
+    public DbSet<CurrentTemplateVersion> ContractTemplateVersions { get; set; } = default!;
     public DbSet<User> Users { get; set; } = default!;
     public DbSet<Department> Departments { get; set; } = default!;
     public DbSet<Partner> Partners { get; set; } = default!;
@@ -306,7 +391,9 @@ public class TestDashboardDbContext : DbContext, IContractManagementDbContext, I
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
-        modelBuilder.Entity<DomainContract.Contract>().ToTable("CONTRACTS");
+        modelBuilder.Entity<CurrentContract>().ToTable("CONTRACTS");
+        modelBuilder.Entity<CurrentContractType>().ToTable("CONTRACT_TYPES");
+        modelBuilder.Entity<CurrentTemplateVersion>().ToTable("CONTRACT_TEMPLATE_VERSIONS");
         modelBuilder.Entity<User>().ToTable("USERS");
         modelBuilder.Entity<Department>().ToTable("DEPARTMENTS");
         modelBuilder.Entity<Partner>().ToTable("PARTNERS");

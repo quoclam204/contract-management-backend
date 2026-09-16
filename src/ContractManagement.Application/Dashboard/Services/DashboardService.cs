@@ -1,25 +1,26 @@
 using ContractManagement.Application.Common.Interfaces;
-using ContractManagement.Application.Contract.Interfaces;
+using ContractManagement.Application.Contracts.Interfaces;
 using ContractManagement.Application.Dashboard.DTOs;
 using ContractManagement.Application.Dashboard.Interfaces;
 using ContractManagement.Application.Identity.Interfaces;
-using DomainContract = ContractManagement.Domain.Contract.Entities;
-using ContractManagement.Domain.Contract.Enums;
+using ContractManagement.Domain.Contracts.Entities;
+using ContractManagement.Domain.Contracts.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace ContractManagement.Application.Dashboard.Services;
 
 /// <summary>
 /// Service implementing dashboard statistics and basic reporting queries.
+/// Uses current Contracts module (IContractDbContext / Domain.Contracts.Entities.Contract) -> dbo.CONTRACTS.
 /// </summary>
 public class DashboardService : IDashboardService
 {
-    private readonly IContractManagementDbContext _contractDbContext;
+    private readonly IContractDbContext _contractDbContext;
     private readonly IIdentityDbContext _identityDbContext;
     private readonly IPartnerDbContext _partnerDbContext;
 
     public DashboardService(
-        IContractManagementDbContext contractDbContext,
+        IContractDbContext contractDbContext,
         IIdentityDbContext identityDbContext,
         IPartnerDbContext partnerDbContext)
     {
@@ -32,31 +33,43 @@ public class DashboardService : IDashboardService
     {
         var query = FilterByOwner(_contractDbContext.Contracts.AsNoTracking(), userIdFilter);
 
-        var contractStats = await query
-            .Select(c => new { c.Status, c.Value })
-            .ToListAsync(cancellationToken);
+        var now = DateTime.UtcNow;
+        var expiringDeadline = now.AddDays(30);
 
-        var totalContracts = contractStats.Count;
-        var totalValue = contractStats.Sum(c => c.Value);
+        // SQL-side aggregations (no full materialization)
+        var totalContracts = await query.CountAsync(cancellationToken);
+        var totalValue = await query.SumAsync(c => c.Value, cancellationToken);
 
-        var active = contractStats.Where(c => c.Status == (byte)ContractStatusEnum.Active).ToList();
-        var expiring = contractStats.Where(c => c.Status == (byte)ContractStatusEnum.Expiring).ToList();
-        var pending = contractStats.Where(c => c.Status == (byte)ContractStatusEnum.PendingApproval).ToList();
+        var activeCount = await query.CountAsync(c => c.Status == ContractStatus.Active, cancellationToken);
+        var activeValue = await query.Where(c => c.Status == ContractStatus.Active).SumAsync(c => c.Value, cancellationToken);
 
-        var draftCount = contractStats.Count(c => c.Status == (byte)ContractStatusEnum.Draft);
-        var signedCount = contractStats.Count(c => c.Status == (byte)ContractStatusEnum.Signed);
-        var terminatedCount = contractStats.Count(c => c.Status == (byte)ContractStatusEnum.Terminated);
+        var pendingCount = await query.CountAsync(c => c.Status == ContractStatus.PendingApproval, cancellationToken);
+        var pendingValue = await query.Where(c => c.Status == ContractStatus.PendingApproval).SumAsync(c => c.Value, cancellationToken);
+
+        // MVP KPI "Sắp Hết Hạn": Active + ExpiryDate within [now, now+30d]
+        var expiringCount = await query.CountAsync(
+            c => c.Status == ContractStatus.Active
+                 && c.ExpiryDate >= now
+                 && c.ExpiryDate <= expiringDeadline,
+            cancellationToken);
+        var expiringValue = await query
+            .Where(c => c.Status == ContractStatus.Active && c.ExpiryDate >= now && c.ExpiryDate <= expiringDeadline)
+            .SumAsync(c => c.Value, cancellationToken);
+
+        var draftCount = await query.CountAsync(c => c.Status == ContractStatus.Draft, cancellationToken);
+        var signedCount = await query.CountAsync(c => c.Status == ContractStatus.Signed, cancellationToken);
+        var terminatedCount = await query.CountAsync(c => c.Status == ContractStatus.Terminated, cancellationToken);
 
         return new DashboardSummaryDto
         {
             TotalContracts = totalContracts,
             TotalValue = totalValue,
-            ActiveContractsCount = active.Count,
-            ActiveContractsValue = active.Sum(c => c.Value),
-            ExpiringContractsCount = expiring.Count,
-            ExpiringContractsValue = expiring.Sum(c => c.Value),
-            PendingApprovalCount = pending.Count,
-            PendingApprovalValue = pending.Sum(c => c.Value),
+            ActiveContractsCount = activeCount,
+            ActiveContractsValue = activeValue,
+            ExpiringContractsCount = expiringCount,
+            ExpiringContractsValue = expiringValue,
+            PendingApprovalCount = pendingCount,
+            PendingApprovalValue = pendingValue,
             DraftCount = draftCount,
             SignedCount = signedCount,
             TerminatedCount = terminatedCount
@@ -77,10 +90,10 @@ public class DashboardService : IDashboardService
             })
             .ToListAsync(cancellationToken);
 
-        var resultDict = statusGroups.ToDictionary(g => g.Status);
+        var resultDict = statusGroups.ToDictionary(g => (byte)g.Status);
 
         var result = new List<ContractStatusSummaryDto>();
-        foreach (ContractStatusEnum statusEnum in Enum.GetValues(typeof(ContractStatusEnum)))
+        foreach (ContractStatus statusEnum in Enum.GetValues(typeof(ContractStatus)))
         {
             byte statusByte = (byte)statusEnum;
             if (resultDict.TryGetValue(statusByte, out var group))
@@ -188,7 +201,7 @@ public class DashboardService : IDashboardService
         return timeGroups;
     }
 
-    private static IQueryable<DomainContract.Contract> FilterByOwner(IQueryable<DomainContract.Contract> query, Guid? userIdFilter)
+    private static IQueryable<ContractManagement.Domain.Contracts.Entities.Contract> FilterByOwner(IQueryable<ContractManagement.Domain.Contracts.Entities.Contract> query, Guid? userIdFilter)
     {
         if (userIdFilter.HasValue && userIdFilter.Value != Guid.Empty)
         {

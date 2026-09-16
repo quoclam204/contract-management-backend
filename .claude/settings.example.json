@@ -1,28 +1,21 @@
 {
   "permissions": {
     "allow": [
-      // Common development permissions - customize as needed
       "Bash(dotnet build)",
       "Bash(dotnet test)",
       "Bash(dotnet run)",
       "Bash(git status)",
-      "status)",
       "Bash(git diff)",
       "Bash(git log --oneline -10)",
       "Bash(git branch)",
-      "Bash(git checkout -b feature/*",
-      // Example: Preserve custom build/script permissions from settings.local.json
-      // "Bash(mkdir -p /d/Github/ContractManagement-Backend)",
-      // File inspection permissions
+      "Bash(git checkout -b feature/*)",
       "Read",
       "Glob",
       "Grep",
-      // Analysis permissions (read-only)
       "WebSearch",
       "WebFetch"
     ],
     "deny": [
-      // Prevent dangerous operations - customize as needed
       "Bash(drop database)",
       "Bash(delete database)",
       "Bash(drop table)",
@@ -39,30 +32,18 @@
       "Bash(commit --amend --no-edit)",
       "Bash(push --force)",
       "Bash(push --force-with-lease)",
-      // Prevent schema modification
       "Edit(*.sql)",
       "Write(*.sql)",
-      // Prevent automatic commits/pushes
       "Bash(git commit -a -m *)",
       "Bash(git push origin *)"
     ]
   },
-  // Additional directories that Claude can access beyond the workspace
-  // Add paths to directories you want Claude to be able to access
-  // Example from settings.local.json: "D:\\Github"
-  "additionalDirectories": [
-    // "D:\\Github"
-  ],
-  // Agent settings
+  "additionalDirectories": [],
   "agent": {
-    // Timeout for agent responses (in seconds)
     "timeoutSeconds": 120
   },
-  // Model preferences
   "modelPreferences": {
-    // Prefer Sonnet for most tasks
     "optimus": "sonnet",
-    // Use Opus for complex reasoning tasks
     "opus": "opus"
   }
 }

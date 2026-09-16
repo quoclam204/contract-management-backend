@@ -1,9 +1,7 @@
 {
   "permissions": {
     "allow": [
-      // Preserve existing permission from settings.local.json
       "Bash(mkdir -p /d/Github/ContractManagement-Backend)",
-      // Common development permissions
       "Bash(dotnet build)",
       "Bash(dotnet test)",
       "Bash(dotnet run)",
@@ -11,17 +9,14 @@
       "Bash(git diff)",
       "Bash(git log --oneline -10)",
       "Bash(git branch)",
-      "Bash(git checkout -b feature/*",
-      // File inspection permissions
+      "Bash(git checkout -b feature/*)",
       "Read",
       "Glob",
       "Grep",
-      // Analysis permissions (read-only)
       "WebSearch",
       "WebFetch"
     ],
     "deny": [
-      // Prevent dangerous operations
       "Bash(drop database)",
       "Bash(delete database)",
       "Bash(drop table)",
@@ -38,28 +33,18 @@
       "Bash(commit --amend --no-edit)",
       "Bash(push --force)",
       "Bash(push --force-with-lease)",
-      // Prevent schema modification
       "Edit(*.sql)",
       "Write(*.sql)",
-      // Prevent automatic commits/pushes
       "Bash(git commit -a -m *)",
       "Bash(git push origin *)"
     ]
   },
-  // Additional directories that Claude can access beyond the workspace
   "additionalDirectories": [
     "D:\\Github"
   ],
-  // Agent settings
-  "agent": {
-    // Timeout for agent responses (in seconds)
-    "timeoutSeconds": 120
-  },
-  // Model preferences
+  "agent": "claude",
   "modelPreferences": {
-    // Prefer Sonnet for most tasks
     "optimus": "sonnet",
-    // Use Opus for complex reasoning tasks
     "opus": "opus"
   }
 }

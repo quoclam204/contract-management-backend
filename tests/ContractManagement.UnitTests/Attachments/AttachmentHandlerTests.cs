@@ -7,8 +7,9 @@ using ContractManagement.Application.Common.Interfaces;
 using ContractManagement.Application.Features.Attachments;
 using ContractManagement.Application.Features.Attachments.Validators;
 using ContractManagement.Domain;
-using ContractManagement.Domain.Contract.Entities;
+using ContractManagement.Domain.Contracts.Entities;
 using ContractManagement.Infrastructure.Persistence;
+using DomainContract = ContractManagement.Domain.Contracts.Entities.Contract;
 using ContractManagement.Infrastructure.Services;
 using FluentAssertions;
 using FluentValidation;
@@ -29,9 +30,9 @@ public class AttachmentHandlerTests
         return new ContractManagementDbContext(options);
     }
 
-    private static ContractManagement.Domain.Contract.Entities.Contract SeedContract(ContractManagementDbContext context)
+    private static DomainContract SeedContract(ContractManagementDbContext context)
     {
-        var contract = new ContractManagement.Domain.Contract.Entities.Contract
+        var contract = new DomainContract
         {
             Id = Guid.NewGuid(),
             ContractNumber = "HD-" + Guid.NewGuid().ToString()[..8],
@@ -93,6 +94,10 @@ public class AttachmentHandlerTests
         var inDb = await context.Attachments.FirstOrDefaultAsync(a => a.Id == result.Id);
         inDb.Should().NotBeNull();
         inDb!.Version.Should().Be(1);
+
+        // Verify Contract.FileUrl is also synced
+        var reloadedContract = await ((IAttachmentDbContext)context).Contracts.FirstAsync(c => c.Id == contract.Id);
+        reloadedContract.FileUrl.Should().Be(result.FileUrl);
     }
 
     [Fact]
@@ -143,6 +148,10 @@ public class AttachmentHandlerTests
         var inDb = await context.Attachments.FirstOrDefaultAsync(a => a.Id == result.Id);
         inDb.Should().NotBeNull();
         inDb!.Version.Should().Be(3);
+
+        // Verify Contract.FileUrl is also synced
+        var reloadedContract = await ((IAttachmentDbContext)context).Contracts.FirstAsync(c => c.Id == contract.Id);
+        reloadedContract.FileUrl.Should().Be(result.FileUrl);
     }
 
     [Fact]

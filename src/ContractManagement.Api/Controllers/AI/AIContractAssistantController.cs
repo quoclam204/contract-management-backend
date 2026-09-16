@@ -1,7 +1,7 @@
 using ContractManagement.Application.AI.DTOs;
 using ContractManagement.Application.AI.Interfaces;
 using ContractManagement.Application.Common.Interfaces;
-using ContractManagement.Application.Contract.Interfaces;
+using ContractManagement.Application.Contracts.Interfaces;
 using Hangfire;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -22,7 +22,7 @@ namespace ContractManagement.Api.Controllers.AI;
 public class AIContractAssistantController : ControllerBase
 {
     private readonly IAIContractAssistantService _aiService;
-    private readonly IContractManagementDbContext _contractContext;
+    private readonly IContractDbContext _contractContext;
     private readonly IAiDbContext _aiContext;
     private readonly ICurrentUserService _currentUserService;
     private readonly IBackgroundJobClient _backgroundJobClient;
@@ -31,7 +31,7 @@ public class AIContractAssistantController : ControllerBase
     [ActivatorUtilitiesConstructor]
     public AIContractAssistantController(
         IAIContractAssistantService aiService,
-        IContractManagementDbContext contractContext,
+        IContractDbContext contractContext,
         IAiDbContext aiContext,
         ICurrentUserService currentUserService,
         IBackgroundJobClient backgroundJobClient,
@@ -298,16 +298,11 @@ public class AIContractAssistantController : ControllerBase
     // Keeps existing unit tests (auth attribute checks) green without
     // forcing them to supply Hangfire/DB dependencies.
     // ------------------------------------------------------------------
-    private sealed class FakeContractContext : IContractManagementDbContext
+    private sealed class FakeContractContext : IContractDbContext
     {
-        public DbSet<ContractManagement.Domain.Contract.Entities.ContractType> ContractTypes => throw new NotImplementedException();
-        public DbSet<ContractManagement.Domain.Contract.Entities.ContractTemplateVersion> ContractTemplateVersions => throw new NotImplementedException();
-        public DbSet<ContractManagement.Domain.Contract.Entities.Contract> Contracts => throw new NotImplementedException();
-        public DbSet<ContractManagement.Domain.Workflow.Entities.WorkflowDefinition> WorkflowDefinitions => throw new NotImplementedException();
-        public DbSet<ContractManagement.Domain.Workflow.Entities.WorkflowStep> WorkflowSteps => throw new NotImplementedException();
-        public DbSet<ContractManagement.Domain.Workflow.Entities.ApprovalStep> ApprovalSteps => throw new NotImplementedException();
-        public DbSet<ContractManagement.Domain.Workflow.Entities.Signature> Signatures => throw new NotImplementedException();
-        public Task<Guid> GetDefaultApproverIdAsync(CancellationToken cancellationToken = default) => Task.FromResult(Guid.Empty);
+        public DbSet<ContractManagement.Domain.Contracts.Entities.Contract> Contracts => throw new NotImplementedException();
+        public DbSet<ContractManagement.Domain.Contracts.Entities.ContractType> ContractTypes => throw new NotImplementedException();
+        public DbSet<ContractManagement.Domain.Contracts.Entities.ContractTemplateVersion> ContractTemplateVersions => throw new NotImplementedException();
         public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) => Task.FromResult(0);
     }
 

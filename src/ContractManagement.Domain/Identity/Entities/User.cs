@@ -16,6 +16,7 @@ public class User
     public bool IsActive { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
+    public string? AvatarUrl { get; set; }
 
     public Department? Department { get; set; }
 

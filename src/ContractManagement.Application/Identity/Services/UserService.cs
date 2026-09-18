@@ -202,6 +202,7 @@ public class UserService : IUserService
             user.Department != null ? user.Department.Name : null,
             user.IsActive,
             user.CreatedAt,
-            user.UpdatedAt
+            user.UpdatedAt,
+            user.AvatarUrl
         );
 }

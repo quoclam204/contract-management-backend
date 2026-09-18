@@ -48,5 +48,6 @@ public record UserDetailDto(
     string? DepartmentName,
     bool IsActive,
     DateTime CreatedAt,
-    DateTime? UpdatedAt
+    DateTime? UpdatedAt,
+    string? AvatarUrl = null
 );

@@ -11,5 +11,6 @@ namespace ContractManagement.Application.Features.Attachments
         public string FileUrl { get; set; } = default!;
         public Guid UploadedBy { get; set; }
         public DateTime UploadedAt { get; set; }
+        public long? FileSize { get; set; }
     }
 }

@@ -16,7 +16,6 @@ namespace ContractManagement.Application.Features.Attachments
         private readonly IStorageService _storageService;
         private readonly ICurrentUserService _currentUserService;
 
-        // Seeded User Id cho Người 3 trong database
         private static readonly Guid FallbackUserId = Guid.Parse("22222222-2222-2222-2222-222222222222");
 
         public UploadAttachmentCommandHandler(
@@ -31,15 +30,12 @@ namespace ContractManagement.Application.Features.Attachments
 
         public async Task<AttachmentDto> Handle(UploadAttachmentCommand request, CancellationToken cancellationToken)
         {
-            // 1. Kiểm tra tồn tại của hợp đồng và load entity để đồng bộ FileUrl cho AI
             var contract = await _context.Contracts.FirstOrDefaultAsync(c => c.Id == request.ContractId, cancellationToken);
             if (contract == null)
             {
                 throw new KeyNotFoundException($"Không tìm thấy hợp đồng với Id: {request.ContractId}");
             }
 
-            // 2. Logic Versioning:
-            // Kiểm tra hợp đồng đã có file đính kèm chưa. Nếu chưa -> Version = 1; nếu đã có -> lấy Max(Version) + 1
             var maxVersion = await _context.Attachments
                 .Where(a => a.ContractId == request.ContractId)
                 .Select(a => (int?)a.Version)
@@ -47,12 +43,16 @@ namespace ContractManagement.Application.Features.Attachments
 
             var nextVersion = (maxVersion ?? 0) + 1;
 
-            // 3. Xác định UploadedBy từ request hoặc CurrentUserService
             var uploadedBy = (request.UploadedBy.HasValue && request.UploadedBy.Value != Guid.Empty)
                 ? request.UploadedBy.Value
                 : (_currentUserService.UserId ?? FallbackUserId);
 
-            // 4. Lưu file vật lý qua IStorageService
+            long? fileSize = null;
+            if (request.FileStream.CanSeek)
+            {
+                fileSize = request.FileStream.Length;
+            }
+
             var fileUrl = await _storageService.SaveFileAsync(
                 request.ContractId,
                 nextVersion,
@@ -60,7 +60,6 @@ namespace ContractManagement.Application.Features.Attachments
                 request.FileStream,
                 cancellationToken);
 
-            // 5. Lưu bản ghi Attachment mới vào DB và đồng bộ Contract.FileUrl cho AI
             var attachment = new Attachment(
                 Guid.NewGuid(),
                 request.ContractId,
@@ -72,10 +71,6 @@ namespace ContractManagement.Application.Features.Attachments
             );
 
             _context.Attachments.Add(attachment);
-
-            // Đồng bộ FileUrl lên CONTRACTS để AIAnalysisJobService đọc được qua Contract.FileUrl
-            // Trực tiếp gán thuộc tính (không qua Contract.Update để tránh ràng buộc Status == Draft)
-            // vì FileUrl là tham chiếu tài liệu, không phải dữ liệu nghiệp vụ bị khóa bởi trạng thái.
             contract.FileUrl = fileUrl;
 
             await _context.SaveChangesAsync(cancellationToken);
@@ -88,7 +83,8 @@ namespace ContractManagement.Application.Features.Attachments
                 Version = attachment.Version,
                 FileUrl = attachment.FileUrl,
                 UploadedBy = attachment.UploadedBy,
-                UploadedAt = attachment.UploadedAt
+                UploadedAt = attachment.UploadedAt,
+                FileSize = fileSize
             };
         }
     }

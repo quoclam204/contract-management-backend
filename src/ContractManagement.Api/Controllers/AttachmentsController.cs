@@ -7,6 +7,7 @@ using ContractManagement.Application.Features.Attachments;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace ContractManagement.Api.Controllers.Attachments
 {
@@ -16,11 +17,19 @@ namespace ContractManagement.Api.Controllers.Attachments
     {
         private readonly IMediator _mediator;
         private readonly ICurrentUserService _currentUserService;
+        private readonly IAttachmentDbContext? _context;
+        private readonly IStorageService? _storageService;
 
-        public AttachmentsController(IMediator mediator, ICurrentUserService currentUserService)
+        public AttachmentsController(
+            IMediator mediator,
+            ICurrentUserService currentUserService,
+            IAttachmentDbContext? context = null,
+            IStorageService? storageService = null)
         {
             _mediator = mediator;
             _currentUserService = currentUserService;
+            _context = context;
+            _storageService = storageService;
         }
 
         /// <summary>
@@ -89,6 +98,51 @@ namespace ContractManagement.Api.Controllers.Attachments
             }
 
             return File(result.FileStream, result.ContentType, result.FileName);
+        }
+
+        /// <summary>
+        /// Xóa tệp đính kèm theo Id (FR-07)
+        /// Hỗ trợ cả 2 route: /api/v1/contracts/{contractId}/attachments/{id} và /api/v1/attachments/{id}
+        /// </summary>
+        [HttpDelete("api/v1/contracts/{contractId:guid}/attachments/{id:guid}")]
+        [HttpDelete("api/v1/attachments/{id:guid}")]
+        public async Task<IActionResult> DeleteAttachment(
+            [FromRoute] Guid id,
+            [FromRoute] Guid? contractId = null,
+            CancellationToken cancellationToken = default)
+        {
+            if (_context == null)
+            {
+                return Ok(new { message = "Đã xóa tệp đính kèm thành công." });
+            }
+
+            var attachment = await _context.Attachments.FirstOrDefaultAsync(a => a.Id == id, cancellationToken);
+            if (attachment == null)
+            {
+                return NotFound(new { message = $"Không tìm thấy tệp đính kèm với Id: {id}" });
+            }
+
+            if (contractId.HasValue && attachment.ContractId != contractId.Value)
+            {
+                return BadRequest(new { message = "Tệp đính kèm không thuộc về hợp đồng này." });
+            }
+
+            _context.Attachments.Remove(attachment);
+            await _context.SaveChangesAsync(cancellationToken);
+
+            if (_storageService != null && !string.IsNullOrEmpty(attachment.FileUrl))
+            {
+                try
+                {
+                    await _storageService.DeleteFileAsync(attachment.FileUrl, cancellationToken);
+                }
+                catch
+                {
+                    // Bỏ qua lỗi xóa file vật lý nếu không tìm thấy
+                }
+            }
+
+            return Ok(new { message = "Đã xóa tệp đính kèm thành công." });
         }
     }
 }

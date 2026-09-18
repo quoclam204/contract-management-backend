@@ -46,6 +46,10 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(x => x.UpdatedAt)
             .IsRequired(false);
 
+        builder.Property(x => x.AvatarUrl)
+            .IsRequired(false)
+            .HasMaxLength(1000);
+
         // Quan hệ với Department (FK_USERS_DEPARTMENTS)
         builder.HasOne(x => x.Department)
             .WithMany()

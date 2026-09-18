@@ -133,7 +133,7 @@ public class AuthController : ControllerBase
 
         try
         {
-            var updated = await _authService.UpdateProfileAsync(_currentUserService.UserId.Value, request.FullName, cancellationToken);
+            var updated = await _authService.UpdateProfileAsync(_currentUserService.UserId.Value, request.FullName, request.AvatarUrl, cancellationToken);
             return Ok(updated);
         }
         catch (ArgumentException ex)

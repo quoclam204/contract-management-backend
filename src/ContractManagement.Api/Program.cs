@@ -182,6 +182,27 @@ builder.Services.AddAuthorization(options =>
 
 var app = builder.Build();
 
+// Tự động kiểm tra và đảm bảo bảng dbo.USERS có cột AvatarUrl
+try
+{
+    using var scope = app.Services.CreateScope();
+    var dbContext = scope.ServiceProvider.GetRequiredService<ContractManagementDbContext>();
+    await dbContext.Database.ExecuteSqlRawAsync(@"
+        IF EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = 'dbo' AND TABLE_NAME = 'USERS')
+        BEGIN
+            IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'dbo' AND TABLE_NAME = 'USERS' AND COLUMN_NAME = 'AvatarUrl')
+            BEGIN
+                ALTER TABLE dbo.USERS ADD AvatarUrl NVARCHAR(1000) NULL;
+            END
+        END
+    ");
+}
+catch (Exception ex)
+{
+    var logger = app.Services.GetService<ILoggerFactory>()?.CreateLogger("DbInit");
+    logger?.LogWarning(ex, "Không thể tự động thêm cột AvatarUrl vào bảng USERS (Database có thể offline hoặc chưa khởi tạo)");
+}
+
 // Hangfire recurring job — FR-08 contract expiry (daily)
 try
 {

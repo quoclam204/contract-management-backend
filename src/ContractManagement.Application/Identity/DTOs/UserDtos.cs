@@ -10,7 +10,8 @@ public record UserDto(
     string RoleName,
     Guid? DepartmentId,
     bool IsActive,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    string? AvatarUrl = null
 );
 
 public record RegisterUserDto(
@@ -50,5 +51,6 @@ public record ChangePasswordRequestDto(
 );
 
 public record UpdateProfileRequestDto(
-    string FullName
+    string FullName,
+    string? AvatarUrl = null
 );

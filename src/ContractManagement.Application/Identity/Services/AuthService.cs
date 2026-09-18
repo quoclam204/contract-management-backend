@@ -203,7 +203,8 @@ public class AuthService : IAuthService
                 u.Role.ToString(),
                 u.DepartmentId,
                 u.IsActive,
-                u.CreatedAt))
+                u.CreatedAt,
+                u.AvatarUrl))
             .ToListAsync(cancellationToken);
     }
 
@@ -237,7 +238,7 @@ public class AuthService : IAuthService
         return true;
     }
 
-    public async Task<UserDto> UpdateProfileAsync(Guid userId, string fullName, CancellationToken cancellationToken = default)
+    public async Task<UserDto> UpdateProfileAsync(Guid userId, string fullName, string? avatarUrl = null, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(fullName))
             throw new ArgumentException("Full name cannot be empty.");
@@ -247,11 +248,12 @@ public class AuthService : IAuthService
             throw new KeyNotFoundException("User not found.");
 
         user.FullName = fullName.Trim();
+        user.AvatarUrl = string.IsNullOrWhiteSpace(avatarUrl) ? null : avatarUrl.Trim();
         user.UpdatedAt = DateTime.UtcNow;
         await _dbContext.SaveChangesAsync(cancellationToken);
         return ToDto(user);
     }
 
     private static UserDto ToDto(User user) =>
-        new(user.Id, user.FullName, user.Email, user.Role, user.Role.ToString(), user.DepartmentId, user.IsActive, user.CreatedAt);
+        new(user.Id, user.FullName, user.Email, user.Role, user.Role.ToString(), user.DepartmentId, user.IsActive, user.CreatedAt, user.AvatarUrl);
 }

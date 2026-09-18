@@ -11,5 +11,5 @@ public interface IAuthService
     Task<IEnumerable<UserDto>> GetAllUsersAsync(CancellationToken cancellationToken = default);
     Task<UserDto?> GetUserByIdAsync(Guid id, CancellationToken cancellationToken = default);
     Task<bool> ChangePasswordAsync(Guid userId, string currentPassword, string newPassword, CancellationToken cancellationToken = default);
-    Task<UserDto> UpdateProfileAsync(Guid userId, string fullName, CancellationToken cancellationToken = default);
+    Task<UserDto> UpdateProfileAsync(Guid userId, string fullName, string? avatarUrl = null, CancellationToken cancellationToken = default);
 }

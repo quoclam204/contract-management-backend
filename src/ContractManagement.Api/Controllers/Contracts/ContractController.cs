@@ -121,7 +121,79 @@ public class ContractController : ControllerBase
         try
         {
             await _contractService.SubmitContractAsync(id);
-            return Ok(new { message = $"Đã đợt trình hợp đồng Id: {id} để phê duyệt" });
+            return Ok(new { message = $"Đã đệ trình hợp đồng Id: {id} để phê duyệt" });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Kích hoạt hợp đồng sau khi tất cả các bên đã ký kết (Activate)
+    /// </summary>
+    [HttpPost("{id:guid}/activate")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ActivateContract(Guid id)
+    {
+        try
+        {
+            await _contractService.ActivateContractAsync(id);
+            return Ok(new { message = $"Đã kích hoạt hợp đồng Id: {id} thành công" });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Gia hạn hợp đồng (Renew)
+    /// </summary>
+    [HttpPost("{id:guid}/renew")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> RenewContract(Guid id)
+    {
+        try
+        {
+            await _contractService.RenewContractAsync(id);
+            return Ok(new { message = $"Đã gia hạn hợp đồng Id: {id} thành công" });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Chấm dứt hoặc thanh lý hợp đồng (Terminate)
+    /// </summary>
+    [HttpPost("{id:guid}/terminate")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> TerminateContract(Guid id)
+    {
+        try
+        {
+            await _contractService.TerminateContractAsync(id);
+            return Ok(new { message = $"Đã chấm dứt/thanh lý hợp đồng Id: {id} thành công" });
         }
         catch (KeyNotFoundException ex)
         {

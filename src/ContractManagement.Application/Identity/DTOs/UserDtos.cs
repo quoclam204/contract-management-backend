@@ -36,5 +36,19 @@ public record LoginRequestDto(
 
 public record LoginResponseDto(
     string Token,
-    UserDto User
+    UserDto User,
+    string? RefreshToken = null
+);
+
+public record RefreshTokenRequestDto(
+    string RefreshToken
+);
+
+public record ChangePasswordRequestDto(
+    string CurrentPassword,
+    string NewPassword
+);
+
+public record UpdateProfileRequestDto(
+    string FullName
 );

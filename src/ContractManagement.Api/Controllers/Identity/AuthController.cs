@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace ContractManagement.Api.Controllers.Identity;
 
 /// <summary>
-/// Controller xử lý xác thực và phân quyền người dùng (Auth & Identity - Người 1 Lead)
+/// Controller xử lý xác thực và phân quyền người dùng (Auth và Identity - Người 1 Lead)
 /// </summary>
 [ApiController]
 [Route("api/auth")]
@@ -37,6 +37,31 @@ public class AuthController : ControllerBase
         try
         {
             var response = await _authService.LoginAsync(request, cancellationToken);
+            return Ok(response);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(new { error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Cấp mới JWT Token từ Refresh Token
+    /// </summary>
+    [HttpPost("refresh")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(LoginResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequestDto request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var response = await _authService.RefreshTokenAsync(request.RefreshToken, cancellationToken);
             return Ok(response);
         }
         catch (ArgumentException ex)
@@ -91,5 +116,65 @@ public class AuthController : ControllerBase
             return NotFound(new { error = "User not found." });
 
         return Ok(user);
+    }
+
+    /// <summary>
+    /// Cập nhật thông tin cá nhân (Đổi họ tên)
+    /// </summary>
+    [HttpPut("profile")]
+    [Authorize]
+    [ProducesResponseType(typeof(UserDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileRequestDto request, CancellationToken cancellationToken)
+    {
+        if (!_currentUserService.UserId.HasValue)
+            return Unauthorized(new { error = "Not authenticated." });
+
+        try
+        {
+            var updated = await _authService.UpdateProfileAsync(_currentUserService.UserId.Value, request.FullName, cancellationToken);
+            return Ok(updated);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Đổi mật khẩu tài khoản cá nhân
+    /// </summary>
+    [HttpPost("change-password")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequestDto request, CancellationToken cancellationToken)
+    {
+        if (!_currentUserService.UserId.HasValue)
+            return Unauthorized(new { error = "Not authenticated." });
+
+        try
+        {
+            await _authService.ChangePasswordAsync(_currentUserService.UserId.Value, request.CurrentPassword, request.NewPassword, cancellationToken);
+            return Ok(new { message = "Đổi mật khẩu thành công!" });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(new { error = ex.Message });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
     }
 }

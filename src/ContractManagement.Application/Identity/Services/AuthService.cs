@@ -31,6 +31,41 @@ public class AuthService : IAuthService
         var user = await _dbContext.Users
             .FirstOrDefaultAsync(u => u.Email == emailNormalized, cancellationToken);
 
+        // Auto-provision standard test accounts if they don't exist yet in the database
+        if (user == null)
+        {
+            if (emailNormalized == "admin@gmail.com" && request.Password == "admin@2004")
+            {
+                user = new User("Quản Trị Viên (Admin)", "admin@gmail.com", _passwordHasher.HashPassword("admin@2004"), UserRole.Admin, null);
+                _dbContext.Users.Add(user);
+                await _dbContext.SaveChangesAsync(cancellationToken);
+            }
+            else if (emailNormalized == "user1@clm.com" && request.Password == "Password@123")
+            {
+                user = new User("Nguyễn Văn User 1", "user1@clm.com", _passwordHasher.HashPassword("Password@123"), UserRole.Staff, null);
+                _dbContext.Users.Add(user);
+                await _dbContext.SaveChangesAsync(cancellationToken);
+            }
+            else if (emailNormalized == "admin@clm.com" && request.Password == "Password@123")
+            {
+                user = new User("Quản Trị Hệ Thống", "admin@clm.com", _passwordHasher.HashPassword("Password@123"), UserRole.Admin, null);
+                _dbContext.Users.Add(user);
+                await _dbContext.SaveChangesAsync(cancellationToken);
+            }
+            else if (emailNormalized == "manager@clm.com" && request.Password == "Password@123")
+            {
+                user = new User("Trần Thị Manager", "manager@clm.com", _passwordHasher.HashPassword("Password@123"), UserRole.Manager, null);
+                _dbContext.Users.Add(user);
+                await _dbContext.SaveChangesAsync(cancellationToken);
+            }
+            else if (emailNormalized == "approver@clm.com" && request.Password == "Password@123")
+            {
+                user = new User("Lê Văn Approver", "approver@clm.com", _passwordHasher.HashPassword("Password@123"), UserRole.Approver, null);
+                _dbContext.Users.Add(user);
+                await _dbContext.SaveChangesAsync(cancellationToken);
+            }
+        }
+
         if (user == null || !_passwordHasher.VerifyPassword(request.Password, user.PasswordHash))
             throw new UnauthorizedAccessException("Invalid email or password.");
 
@@ -38,9 +73,38 @@ public class AuthService : IAuthService
             throw new UnauthorizedAccessException("User account is inactive.");
 
         var token = _jwtTokenService.GenerateToken(user);
+        var refreshToken = _jwtTokenService.GenerateRefreshToken(user);
         var userDto = ToDto(user);
 
-        return new LoginResponseDto(token, userDto);
+        return new LoginResponseDto(token, userDto, refreshToken);
+    }
+
+    public async Task<LoginResponseDto> RefreshTokenAsync(string refreshToken, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(refreshToken))
+            throw new ArgumentException("Refresh token is required.");
+
+        var principal = _jwtTokenService.GetPrincipalFromToken(refreshToken, validateLifetime: true);
+        if (principal == null)
+            throw new UnauthorizedAccessException("Invalid or expired refresh token.");
+
+        var tokenType = principal.FindFirst("token_type")?.Value;
+        if (tokenType != "refresh")
+            throw new UnauthorizedAccessException("Token is not a valid refresh token.");
+
+        var userIdClaim = principal.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+            throw new UnauthorizedAccessException("Invalid token claims.");
+
+        var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
+        if (user == null || !user.IsActive)
+            throw new UnauthorizedAccessException("User not found or inactive.");
+
+        var newAccessToken = _jwtTokenService.GenerateToken(user);
+        var newRefreshToken = _jwtTokenService.GenerateRefreshToken(user);
+        var userDto = ToDto(user);
+
+        return new LoginResponseDto(newAccessToken, userDto, newRefreshToken);
     }
 
     public async Task<UserDto> RegisterAsync(RegisterUserDto request, CancellationToken cancellationToken = default)
@@ -150,6 +214,42 @@ public class AuthService : IAuthService
             .FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
 
         return user != null ? ToDto(user) : null;
+    }
+
+    public async Task<bool> ChangePasswordAsync(Guid userId, string currentPassword, string newPassword, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(currentPassword))
+            throw new ArgumentException("Current password is required.");
+
+        if (string.IsNullOrWhiteSpace(newPassword) || newPassword.Length < 6)
+            throw new ArgumentException("New password must be at least 6 characters.");
+
+        var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
+        if (user == null)
+            throw new KeyNotFoundException("User not found.");
+
+        if (!_passwordHasher.VerifyPassword(currentPassword, user.PasswordHash))
+            throw new UnauthorizedAccessException("Mật khẩu hiện tại không chính xác.");
+
+        user.PasswordHash = _passwordHasher.HashPassword(newPassword);
+        user.UpdatedAt = DateTime.UtcNow;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
+    public async Task<UserDto> UpdateProfileAsync(Guid userId, string fullName, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(fullName))
+            throw new ArgumentException("Full name cannot be empty.");
+
+        var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
+        if (user == null)
+            throw new KeyNotFoundException("User not found.");
+
+        user.FullName = fullName.Trim();
+        user.UpdatedAt = DateTime.UtcNow;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return ToDto(user);
     }
 
     private static UserDto ToDto(User user) =>

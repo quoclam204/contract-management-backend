@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -11,19 +12,40 @@ namespace ContractManagement.Application.Features.Attachments
     public class GetAttachmentsByContractQueryHandler : IRequestHandler<GetAttachmentsByContractQuery, List<AttachmentDto>>
     {
         private readonly IAttachmentDbContext _context;
+        private readonly IStorageService? _storageService;
 
-        public GetAttachmentsByContractQueryHandler(IAttachmentDbContext context)
+        public GetAttachmentsByContractQueryHandler(IAttachmentDbContext context, IStorageService? storageService = null)
         {
             _context = context;
+            _storageService = storageService;
         }
 
         public async Task<List<AttachmentDto>> Handle(GetAttachmentsByContractQuery request, CancellationToken cancellationToken)
         {
-            return await _context.Attachments
+            var attachments = await _context.Attachments
                 .AsNoTracking()
                 .Where(a => a.ContractId == request.ContractId)
                 .OrderByDescending(a => a.Version)
-                .Select(a => new AttachmentDto
+                .ToListAsync(cancellationToken);
+
+            var list = new List<AttachmentDto>();
+            foreach (var a in attachments)
+            {
+                long? size = null;
+                if (_storageService != null && !string.IsNullOrEmpty(a.FileUrl))
+                {
+                    try
+                    {
+                        using var stream = await _storageService.GetFileAsync(a.FileUrl, cancellationToken);
+                        size = stream.Length;
+                    }
+                    catch
+                    {
+                        // File not on disk or missing
+                    }
+                }
+
+                list.Add(new AttachmentDto
                 {
                     Id = a.Id,
                     ContractId = a.ContractId,
@@ -31,9 +53,12 @@ namespace ContractManagement.Application.Features.Attachments
                     Version = a.Version,
                     FileUrl = a.FileUrl,
                     UploadedBy = a.UploadedBy,
-                    UploadedAt = a.UploadedAt
-                })
-                .ToListAsync(cancellationToken);
+                    UploadedAt = a.UploadedAt,
+                    FileSize = size
+                });
+            }
+
+            return list;
         }
     }
 }

@@ -1,3 +1,4 @@
+using ContractManagement.Application.Common.Interfaces;
 using ContractManagement.Application.Contracts.DTOs;
 using ContractManagement.Application.Contracts.Interfaces;
 using ContractManagement.Application.Contracts.Events;
@@ -15,10 +16,12 @@ namespace ContractManagement.Api.Controllers.Contracts;
 public class ContractController : ControllerBase
 {
     private readonly IContractService _contractService;
+    private readonly ICurrentUserService? _currentUserService;
 
-    public ContractController(IContractService contractService)
+    public ContractController(IContractService contractService, ICurrentUserService? currentUserService = null)
     {
         _contractService = contractService;
+        _currentUserService = currentUserService;
     }
 
     /// <summary>
@@ -53,16 +56,34 @@ public class ContractController : ControllerBase
     [HttpPost]
     [ProducesResponseType(typeof(ContractDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> CreateContract([FromBody] CreateContractRequest request)
     {
         try
         {
+            if (request.OwnerId == Guid.Empty && _currentUserService?.UserId.HasValue == true)
+            {
+                request.OwnerId = _currentUserService.UserId.Value;
+            }
+
             var result = await _contractService.CreateContractAsync(request);
             return CreatedAtAction(nameof(GetContractById), new { id = result.Id }, result);
         }
         catch (ArgumentException ex)
         {
             return BadRequest(new { error = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            var innerMessage = ex.InnerException?.Message;
+            var message = !string.IsNullOrEmpty(innerMessage)
+                ? $"{ex.Message} -> {innerMessage}"
+                : ex.Message;
+            return StatusCode(StatusCodes.Status500InternalServerError, new { error = message });
         }
     }
 

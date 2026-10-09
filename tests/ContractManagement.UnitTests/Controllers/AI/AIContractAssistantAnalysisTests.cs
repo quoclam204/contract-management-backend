@@ -13,7 +13,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
-using DomainContract = ContractManagement.Domain.Contract.Entities.Contract;
+using DomainContract = ContractManagement.Domain.Contracts.Entities.Contract;
+using ContractStatus = ContractManagement.Domain.Contracts.Enums.ContractStatus;
 
 namespace ContractManagement.UnitTests.Controllers.AI;
 
@@ -61,7 +62,7 @@ public class AIContractAssistantAnalysisTests : IDisposable
 
     private void SeedContract(Guid id, Guid ownerId)
     {
-        ((IContractManagementDbContext)_context).Contracts.Add(new DomainContract
+        _context.Contracts.Add(new DomainContract
         {
             Id = id,
             ContractNumber = "HD-" + id.ToString()[..8],
@@ -73,7 +74,7 @@ public class AIContractAssistantAnalysisTests : IDisposable
             Value = 1000m,
             EffectiveDate = DateTime.UtcNow,
             ExpiryDate = DateTime.UtcNow.AddYears(1),
-            Status = 4,
+            Status = ContractStatus.Active,
             FileUrl = "contract.pdf",
             CreatedAt = DateTime.UtcNow,
             RowVersion = new byte[] { 1, 2, 3, 4 }

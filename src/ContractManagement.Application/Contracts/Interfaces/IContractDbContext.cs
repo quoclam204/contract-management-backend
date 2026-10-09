@@ -11,4 +11,5 @@ public interface IContractDbContext
     DbSet<ContractManagement.Domain.Contracts.Entities.ContractType> ContractTypes { get; }
     DbSet<ContractManagement.Domain.Contracts.Entities.ContractTemplateVersion> ContractTemplateVersions { get; }
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
+    Task<Guid> GetDefaultUserIdAsync(CancellationToken cancellationToken = default) => Task.FromResult(Guid.NewGuid());
 }

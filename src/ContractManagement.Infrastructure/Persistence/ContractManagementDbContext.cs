@@ -72,6 +72,25 @@ public class ContractManagementDbContext : DbContext,
         return Guid.NewGuid();
     }
 
+    public async Task<Guid> GetDefaultUserIdAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var user = await Users.Select(u => u.Id).FirstOrDefaultAsync(cancellationToken);
+            if (user != Guid.Empty)
+                return user;
+
+            var sqlUser = await Database.SqlQueryRaw<Guid>("SELECT TOP 1 Id AS [Value] FROM dbo.USERS").FirstOrDefaultAsync(cancellationToken);
+            if (sqlUser != Guid.Empty)
+                return sqlUser;
+        }
+        catch
+        {
+        }
+
+        return Guid.NewGuid();
+    }
+
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         return base.SaveChangesAsync(cancellationToken);

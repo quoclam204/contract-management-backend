@@ -1,3 +1,4 @@
+using ContractManagement.Application.Common.Interfaces;
 using ContractManagement.Application.Contracts.DTOs;
 using ContractManagement.Application.Contracts.Events;
 using ContractManagement.Application.Contracts.Interfaces;
@@ -15,22 +16,95 @@ public class ContractService : IContractService
 {
     private readonly IContractDbContext _context;
     private readonly IMediator _mediator;
+    private readonly ICurrentUserService? _currentUserService;
 
-    public ContractService(IContractDbContext context, IMediator mediator)
+    public ContractService(
+        IContractDbContext context,
+        IMediator mediator,
+        ICurrentUserService? currentUserService = null)
     {
         _context = context;
         _mediator = mediator;
+        _currentUserService = currentUserService;
     }
 
     public async Task<ContractDto> CreateContractAsync(CreateContractRequest request)
     {
+        if (string.IsNullOrWhiteSpace(request.ContractNumber))
+            throw new ArgumentException("Số hợp đồng không được để trống.", nameof(request.ContractNumber));
+
+        if (string.IsNullOrWhiteSpace(request.Title))
+            throw new ArgumentException("Tiêu đề hợp đồng không được để trống.", nameof(request.Title));
+
+        if (request.ContractTypeId == Guid.Empty)
+            throw new ArgumentException("Loại hợp đồng không hợp lệ.", nameof(request.ContractTypeId));
+
+        if (request.PartnerId == Guid.Empty)
+            throw new ArgumentException("Đối tác ký kết không hợp lệ.", nameof(request.PartnerId));
+
+        // 1. Resolve OwnerId (từ request, hoặc current user, hoặc fallback database user)
+        var ownerId = request.OwnerId;
+        if (ownerId == Guid.Empty)
+        {
+            if (_currentUserService?.UserId.HasValue == true && _currentUserService.UserId.Value != Guid.Empty)
+            {
+                ownerId = _currentUserService.UserId.Value;
+            }
+            else
+            {
+                ownerId = await _context.GetDefaultUserIdAsync();
+            }
+        }
+
+        // 2. Resolve TemplateVersionUsedId per SRS specs: query active template version for ContractTypeId
+        var templateVersionId = request.TemplateVersionUsedId;
+        if (templateVersionId == Guid.Empty)
+        {
+            var activeTemplate = await _context.ContractTemplateVersions
+                .Where(tv => tv.ContractTypeId == request.ContractTypeId && tv.IsActive)
+                .OrderByDescending(tv => tv.Version)
+                .FirstOrDefaultAsync();
+
+            if (activeTemplate != null)
+            {
+                templateVersionId = activeTemplate.Id;
+            }
+            else
+            {
+                var anyTemplate = await _context.ContractTemplateVersions
+                    .Where(tv => tv.ContractTypeId == request.ContractTypeId)
+                    .OrderByDescending(tv => tv.Version)
+                    .FirstOrDefaultAsync();
+
+                if (anyTemplate != null)
+                {
+                    templateVersionId = anyTemplate.Id;
+                }
+                else
+                {
+                    // Auto-provision initial active template version 1 for this contract type
+                    var newTemplate = new ContractTemplateVersion
+                    {
+                        Id = Guid.NewGuid(),
+                        ContractTypeId = request.ContractTypeId,
+                        Version = 1,
+                        IsActive = true,
+                        CreatedBy = ownerId,
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    _context.ContractTemplateVersions.Add(newTemplate);
+                    templateVersionId = newTemplate.Id;
+                }
+            }
+        }
+
         var contract = new ContractManagement.Domain.Contracts.Entities.Contract
         {
             ContractNumber = request.ContractNumber,
             ContractTypeId = request.ContractTypeId,
-            TemplateVersionUsedId = request.TemplateVersionUsedId,
+            TemplateVersionUsedId = templateVersionId,
             PartnerId = request.PartnerId,
-            OwnerId = request.OwnerId,
+            OwnerId = ownerId,
             Title = request.Title,
             Value = request.Value,
             SignedDate = request.SignedDate,
@@ -43,11 +117,14 @@ public class ContractService : IContractService
         _context.Contracts.Add(contract);
         await _context.SaveChangesAsync();
 
+        var contractType = await _context.ContractTypes.FindAsync(contract.ContractTypeId);
+
         return new ContractDto
         {
             Id = contract.Id,
             ContractNumber = contract.ContractNumber,
             ContractTypeId = contract.ContractTypeId,
+            ContractTypeName = contractType?.Name,
             TemplateVersionUsedId = contract.TemplateVersionUsedId,
             PartnerId = contract.PartnerId,
             OwnerId = contract.OwnerId,

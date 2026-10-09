@@ -11,6 +11,7 @@ namespace ContractManagement.Api.Controllers.Workflow;
 /// </summary>
 [ApiController]
 [Route("api/approvals")]
+[Route("api/v1/approvals")]
 [Tags("Approval Process")]
 [Authorize(Policy = "RequireApprover")]
 public class ApprovalController : ControllerBase
@@ -27,6 +28,7 @@ public class ApprovalController : ControllerBase
     /// Hệ thống sẽ tự động xác định luồng duyệt theo giá trị nếu không chỉ định và tạo snapshot các bước duyệt
     /// </summary>
     [HttpPost("submit")]
+    [HttpPost("start")]
     [ProducesResponseType(typeof(ContractApprovalProgressDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> SubmitForApproval([FromBody] SubmitContractApprovalRequest request)
@@ -52,6 +54,7 @@ public class ApprovalController : ControllerBase
     /// Khi một bước Reject -> Bắn sự kiện WorkflowRejectedEvent
     /// </summary>
     [HttpPost("decision")]
+    [HttpPost("process")]
     [ProducesResponseType(typeof(ContractApprovalProgressDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

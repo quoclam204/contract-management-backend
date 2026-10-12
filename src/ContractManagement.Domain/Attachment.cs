@@ -1,4 +1,5 @@
 using System;
+using ContractManagement.Domain.Identity.Entities;
 
 namespace ContractManagement.Domain
 {
@@ -14,6 +15,8 @@ namespace ContractManagement.Domain
         public string FileUrl { get; private set; } = default!;
         public Guid UploadedBy { get; private set; }
         public DateTime UploadedAt { get; private set; }
+
+        public User? User { get; private set; }
 
         // Constructor for creating a new attachment
         public Attachment(Guid id, Guid contractId, string fileName, int version, string fileUrl, Guid uploadedBy, DateTime uploadedAt)

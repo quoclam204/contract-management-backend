@@ -24,6 +24,7 @@ namespace ContractManagement.Application.Features.Attachments
         {
             var attachments = await _context.Attachments
                 .AsNoTracking()
+                .Include(a => a.User)
                 .Where(a => a.ContractId == request.ContractId)
                 .OrderByDescending(a => a.Version)
                 .ToListAsync(cancellationToken);
@@ -45,6 +46,8 @@ namespace ContractManagement.Application.Features.Attachments
                     }
                 }
 
+                var uploaderName = a.User != null ? a.User.FullName : "N/A";
+
                 list.Add(new AttachmentDto
                 {
                     Id = a.Id,
@@ -53,6 +56,8 @@ namespace ContractManagement.Application.Features.Attachments
                     Version = a.Version,
                     FileUrl = a.FileUrl,
                     UploadedBy = a.UploadedBy,
+                    UploadedByName = uploaderName,
+                    CreatedByFullName = uploaderName,
                     UploadedAt = a.UploadedAt,
                     FileSize = size
                 });

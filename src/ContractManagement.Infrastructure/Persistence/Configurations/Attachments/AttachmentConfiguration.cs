@@ -56,9 +56,10 @@ public class AttachmentConfiguration : IEntityTypeConfiguration<Attachment>
             .HasForeignKey(a => a.ContractId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        builder.HasOne<ContractManagement.Domain.Identity.Entities.User>()
+        builder.HasOne(a => a.User)
             .WithMany()
             .HasForeignKey(a => a.UploadedBy)
+            .IsRequired(false)
             .OnDelete(DeleteBehavior.Restrict);
     }
 }

@@ -1,3 +1,5 @@
+using System.IO;
+using System.Linq;
 using ContractManagement.Application.Common.Interfaces;
 using ContractManagement.Application.Identity.DTOs;
 using ContractManagement.Application.Identity.Interfaces;
@@ -176,5 +178,74 @@ public class AuthController : ControllerBase
         {
             return NotFound(new { error = ex.Message });
         }
+    }
+
+    /// <summary>
+    /// Tải lên ảnh đại diện cá nhân (avatar)
+    /// </summary>
+    [HttpPost("avatar")]
+    [Authorize]
+    [Consumes("multipart/form-data")]
+    [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> UploadAvatar([FromForm] IFormFile file, CancellationToken cancellationToken)
+    {
+        if (!_currentUserService.UserId.HasValue)
+            return Unauthorized(new { error = "Not authenticated." });
+
+        if (file == null || file.Length == 0)
+            return BadRequest(new { error = "Tệp ảnh không được để trống." });
+
+        var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp", ".gif" };
+        var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+        if (!allowedExtensions.Contains(ext))
+            return BadRequest(new { error = "Chỉ chấp nhận các định dạng ảnh: .jpg, .jpeg, .png, .webp, .gif" });
+
+        if (file.Length > 5 * 1024 * 1024)
+            return BadRequest(new { error = "Kích thước ảnh tối đa là 5MB." });
+
+        var userId = _currentUserService.UserId.Value;
+        var avatarsDir = Path.Combine(Directory.GetCurrentDirectory(), "storage", "avatars");
+        if (!Directory.Exists(avatarsDir))
+            Directory.CreateDirectory(avatarsDir);
+
+        var safeFileName = $"{userId}_{DateTime.UtcNow.Ticks}{ext}";
+        var filePath = Path.Combine(avatarsDir, safeFileName);
+
+        using (var stream = new FileStream(filePath, FileMode.Create))
+        {
+            await file.CopyToAsync(stream, cancellationToken);
+        }
+
+        var avatarUrl = $"/api/auth/avatar/{safeFileName}";
+        return Ok(new { avatarUrl });
+    }
+
+    /// <summary>
+    /// Lấy ảnh đại diện
+    /// </summary>
+    [HttpGet("avatar/{fileName}")]
+    [AllowAnonymous]
+    public IActionResult GetAvatar(string fileName)
+    {
+        var safeFileName = Path.GetFileName(fileName);
+        var avatarsDir = Path.Combine(Directory.GetCurrentDirectory(), "storage", "avatars");
+        var filePath = Path.Combine(avatarsDir, safeFileName);
+
+        if (!System.IO.File.Exists(filePath))
+            return NotFound();
+
+        var ext = Path.GetExtension(safeFileName).ToLowerInvariant();
+        var contentType = ext switch
+        {
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".png" => "image/png",
+            ".webp" => "image/webp",
+            ".gif" => "image/gif",
+            _ => "application/octet-stream"
+        };
+
+        return PhysicalFile(filePath, contentType);
     }
 }

@@ -75,6 +75,9 @@ namespace ContractManagement.Application.Features.Attachments
 
             await _context.SaveChangesAsync(cancellationToken);
 
+            var user = await _context.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == uploadedBy, cancellationToken);
+            var uploaderName = user != null ? user.FullName : "N/A";
+
             return new AttachmentDto
             {
                 Id = attachment.Id,
@@ -83,6 +86,8 @@ namespace ContractManagement.Application.Features.Attachments
                 Version = attachment.Version,
                 FileUrl = attachment.FileUrl,
                 UploadedBy = attachment.UploadedBy,
+                UploadedByName = uploaderName,
+                CreatedByFullName = uploaderName,
                 UploadedAt = attachment.UploadedAt,
                 FileSize = fileSize
             };

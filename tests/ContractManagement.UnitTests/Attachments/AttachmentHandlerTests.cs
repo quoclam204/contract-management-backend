@@ -204,6 +204,33 @@ public class AttachmentHandlerTests
         results[0].Version.Should().Be(3);
         results[1].Version.Should().Be(2);
         results[2].Version.Should().Be(1);
+        results[0].UploadedByName.Should().Be("N/A");
+    }
+
+    [Fact]
+    public async Task GetAttachmentsByContract_WhenUserExists_ShouldPopulateUploadedByName()
+    {
+        // Arrange
+        using var context = CreateInMemoryDbContext();
+        var contractId = Guid.NewGuid();
+        var user = new ContractManagement.Domain.Identity.Entities.User("Nguyễn Văn An", "an.nguyen@test.com", "hash", ContractManagement.Domain.Identity.Enums.UserRole.Staff);
+        context.Users.Add(user);
+
+        context.Attachments.Add(
+            new Attachment(Guid.NewGuid(), contractId, "hopdong.pdf", 1, "path1", user.Id, DateTime.UtcNow)
+        );
+        await context.SaveChangesAsync();
+
+        var handler = new GetAttachmentsByContractQueryHandler(context);
+
+        // Act
+        var results = await handler.Handle(new GetAttachmentsByContractQuery(contractId), CancellationToken.None);
+
+        // Assert
+        results.Should().NotBeNull();
+        results.Should().HaveCount(1);
+        results[0].UploadedByName.Should().Be("Nguyễn Văn An");
+        results[0].CreatedByFullName.Should().Be("Nguyễn Văn An");
     }
 
     [Fact]

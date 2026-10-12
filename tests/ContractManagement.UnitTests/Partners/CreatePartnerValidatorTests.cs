@@ -2,6 +2,7 @@ using ContractManagement.Application.Features.Partners;
 using ContractManagement.Application.Features.Partners.Validators;
 using FluentAssertions;
 using FluentValidation.TestHelper;
+using Microsoft.EntityFrameworkCore;
 using Xunit;
 
 namespace ContractManagement.UnitTests.Partners;
@@ -108,5 +109,65 @@ public class CreatePartnerValidatorTests
 
         // Assert
         result.ShouldNotHaveAnyValidationErrors();
+    }
+
+    [Fact]
+    public async Task CreatePartnerValidator_WhenNameAlreadyExistsInDb_ShouldHaveValidationError()
+    {
+        // Arrange
+        var options = new Microsoft.EntityFrameworkCore.DbContextOptionsBuilder<ContractManagement.Infrastructure.Persistence.ContractManagementDbContext>()
+            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+            .Options;
+        using var context = new ContractManagement.Infrastructure.Persistence.ContractManagementDbContext(options);
+
+        var existing = new ContractManagement.Domain.Partner(
+            Guid.NewGuid(), "Công ty TNHH Đã Tồn Tại", "0101112223", "Nguyễn Văn A", "a@test.com", "Hà Nội", DateTime.UtcNow);
+        context.Partners.Add(existing);
+        await context.SaveChangesAsync();
+
+        var validatorWithDb = new CreatePartnerValidator(context);
+        var command = new CreatePartnerCommand
+        {
+            Name = "Công ty TNHH Đã Tồn Tại",
+            TaxCode = "0109998887",
+            ContactEmail = "new@test.com"
+        };
+
+        // Act
+        var result = await validatorWithDb.TestValidateAsync(command);
+
+        // Assert
+        result.ShouldHaveValidationErrorFor(x => x)
+            .WithErrorMessage("Mã số thuế hoặc Tên đối tác đã tồn tại trong hệ thống.");
+    }
+
+    [Fact]
+    public async Task CreatePartnerValidator_WhenTaxCodeAlreadyExistsInDb_ShouldHaveValidationError()
+    {
+        // Arrange
+        var options = new Microsoft.EntityFrameworkCore.DbContextOptionsBuilder<ContractManagement.Infrastructure.Persistence.ContractManagementDbContext>()
+            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+            .Options;
+        using var context = new ContractManagement.Infrastructure.Persistence.ContractManagementDbContext(options);
+
+        var existing = new ContractManagement.Domain.Partner(
+            Guid.NewGuid(), "Công ty TNHH Alpha", "0109998887", "Nguyễn Văn A", "a@test.com", "Hà Nội", DateTime.UtcNow);
+        context.Partners.Add(existing);
+        await context.SaveChangesAsync();
+
+        var validatorWithDb = new CreatePartnerValidator(context);
+        var command = new CreatePartnerCommand
+        {
+            Name = "Công ty Cổ phần Beta",
+            TaxCode = "0109998887",
+            ContactEmail = "beta@test.com"
+        };
+
+        // Act
+        var result = await validatorWithDb.TestValidateAsync(command);
+
+        // Assert
+        result.ShouldHaveValidationErrorFor(x => x)
+            .WithErrorMessage("Mã số thuế hoặc Tên đối tác đã tồn tại trong hệ thống.");
     }
 }

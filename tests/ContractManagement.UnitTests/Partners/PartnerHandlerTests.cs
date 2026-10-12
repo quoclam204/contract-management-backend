@@ -54,6 +54,66 @@ public class PartnerHandlerTests
     }
 
     [Fact]
+    public async Task CreatePartnerCommand_DuplicateName_ShouldThrowValidationException()
+    {
+        // Arrange
+        using var context = CreateInMemoryDbContext();
+        var handler = new CreatePartnerCommandHandler(context);
+
+        var firstPartner = new CreatePartnerCommand
+        {
+            Name = "Công ty TNHH Giải Pháp Phần Mềm",
+            TaxCode = "0101111222",
+            ContactEmail = "info1@software.vn"
+        };
+        await handler.Handle(firstPartner, CancellationToken.None);
+
+        var duplicateNameCommand = new CreatePartnerCommand
+        {
+            Name = "  Công ty TNHH Giải Pháp Phần Mềm  ", // Same name with whitespace
+            TaxCode = "0109999888",
+            ContactEmail = "info2@software.vn"
+        };
+
+        // Act
+        var act = async () => await handler.Handle(duplicateNameCommand, CancellationToken.None);
+
+        // Assert
+        var ex = await act.Should().ThrowAsync<ValidationException>();
+        ex.Which.Errors.Should().Contain(e => e.ErrorMessage == "Mã số thuế hoặc Tên đối tác đã tồn tại trong hệ thống.");
+    }
+
+    [Fact]
+    public async Task CreatePartnerCommand_DuplicateTaxCode_ShouldThrowValidationException()
+    {
+        // Arrange
+        using var context = CreateInMemoryDbContext();
+        var handler = new CreatePartnerCommandHandler(context);
+
+        var firstPartner = new CreatePartnerCommand
+        {
+            Name = "Công ty Cổ phần Alpha",
+            TaxCode = "0101234567",
+            ContactEmail = "alpha@domain.com"
+        };
+        await handler.Handle(firstPartner, CancellationToken.None);
+
+        var duplicateTaxCodeCommand = new CreatePartnerCommand
+        {
+            Name = "Công ty Cổ phần Beta",
+            TaxCode = "0101234567", // Same tax code
+            ContactEmail = "beta@domain.com"
+        };
+
+        // Act
+        var act = async () => await handler.Handle(duplicateTaxCodeCommand, CancellationToken.None);
+
+        // Assert
+        var ex = await act.Should().ThrowAsync<ValidationException>();
+        ex.Which.Errors.Should().Contain(e => e.ErrorMessage == "Mã số thuế hoặc Tên đối tác đã tồn tại trong hệ thống.");
+    }
+
+    [Fact]
     public async Task GetPartnerById_WhenNotFound_ShouldReturnNullOrThrowNotFound()
     {
         // Arrange

@@ -1,11 +1,13 @@
 using FluentValidation;
+using ContractManagement.Application.Common.Interfaces;
 using ContractManagement.Application.Features.Partners;
+using Microsoft.EntityFrameworkCore;
 
 namespace ContractManagement.Application.Features.Partners.Validators;
 
 public class UpdatePartnerValidator : AbstractValidator<UpdatePartnerCommand>
 {
-    public UpdatePartnerValidator()
+    public UpdatePartnerValidator(IPartnerDbContext? context = null)
     {
         RuleFor(x => x.Id)
             .NotEmpty().WithMessage("Id đối tác là bắt buộc.");
@@ -28,6 +30,33 @@ public class UpdatePartnerValidator : AbstractValidator<UpdatePartnerCommand>
 
         RuleFor(x => x.Address)
             .MaximumLength(500).WithMessage("Địa chỉ không được vượt quá 500 ký tự.");
+
+        if (context != null)
+        {
+            RuleFor(x => x)
+                .MustAsync(async (command, ct) =>
+                {
+                    var nameTrimmed = command.Name?.Trim() ?? string.Empty;
+                    var taxCodeTrimmed = command.TaxCode?.Trim();
+
+                    if (!string.IsNullOrEmpty(nameTrimmed))
+                    {
+                        var nameExists = await context.Partners
+                            .AnyAsync(p => p.Id != command.Id && p.Name.ToLower() == nameTrimmed.ToLower(), ct);
+                        if (nameExists) return false;
+                    }
+
+                    if (!string.IsNullOrEmpty(taxCodeTrimmed))
+                    {
+                        var taxCodeExists = await context.Partners
+                            .AnyAsync(p => p.Id != command.Id && p.TaxCode == taxCodeTrimmed, ct);
+                        if (taxCodeExists) return false;
+                    }
+
+                    return true;
+                })
+                .WithMessage("Mã số thuế hoặc Tên đối tác đã tồn tại trong hệ thống.");
+        }
     }
 }
 

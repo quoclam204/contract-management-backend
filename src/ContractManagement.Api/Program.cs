@@ -1,4 +1,5 @@
 using System.Text;
+using ContractManagement.Api.Middlewares;
 using ContractManagement.Api.Services;
 using ContractManagement.Application;
 using ContractManagement.Application.AI.Interfaces;
@@ -244,6 +245,8 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 app.UseCors();
+
+app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 app.UseAuthentication();
 app.UseAuthorization();

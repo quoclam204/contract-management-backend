@@ -9,6 +9,7 @@ namespace ContractManagement.Application.Common.Interfaces
     {
         DbSet<Attachment> Attachments { get; }
         DbSet<ContractManagement.Domain.Contracts.Entities.Contract> Contracts { get; }
+        DbSet<ContractManagement.Domain.Identity.Entities.User> Users { get; }
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
     }
 }

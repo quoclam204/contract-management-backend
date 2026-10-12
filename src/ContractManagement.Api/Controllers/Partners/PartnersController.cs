@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace ContractManagement.Api.Controllers.Partners;
 
 [ApiController]
+[Route("api/partners")]
 [Route("api/v1/partners")]
 [Tags("Partners")]
 public class PartnersController : ControllerBase

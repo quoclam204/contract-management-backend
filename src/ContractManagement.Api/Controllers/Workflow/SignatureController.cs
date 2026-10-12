@@ -47,6 +47,10 @@ public class SignatureController : ControllerBase
         {
             return BadRequest(new { error = ex.Message });
         }
+        catch (Microsoft.EntityFrameworkCore.DbUpdateException)
+        {
+            return BadRequest(new { error = "Không thể ghi nhận chữ ký: Hợp đồng hoặc người ký/đối tác không tồn tại trong hệ thống (lỗi ràng buộc dữ liệu)." });
+        }
     }
 
     /// <summary>
